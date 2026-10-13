@@ -1,20 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import {
   Database,
-  Cloud,
   Check,
   Copy,
-  Server,
   RefreshCw,
   Plus,
-  Trash2,
   HardDrive,
   Download,
   Upload,
   History,
-  GitBranch,
-  ExternalLink,
-  ShieldCheck
+  GitBranch
 } from 'lucide-react';
 import {
   getSupabaseConfig,
@@ -125,7 +120,7 @@ CREATE POLICY "Public Full Access" ON produksi FOR ALL USING (true) WITH CHECK (
     const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(backupObj, null, 2));
     const dlAnchor = document.createElement('a');
     dlAnchor.setAttribute('href', dataStr);
-    dlAnchor.setAttribute('download', `Backup_Sukun_QC_${new Date().toISOString().split('T')[0]}.json`);
+    dlAnchor.setAttribute('download', `Backup_PT_Sukun_Wartono_Indonesia_QC_${new Date().toISOString().split('T')[0]}.json`);
     dlAnchor.click();
   };
 

@@ -1,18 +1,12 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo } from 'react';
 import {
   ShieldCheck,
-  ShieldAlert,
-  AlertTriangle,
   Trash2,
-  CheckCircle2,
-  Play,
-  RotateCcw
+  CheckCircle2
 } from 'lucide-react';
 import { auditDataset } from '../services/storage';
 
 export default function AuditView({ dataset, onDeleteData, onBatchDelete }) {
-  const [hasRun, setHasRun] = useState(true);
-
   const auditResult = useMemo(() => {
     return auditDataset(dataset);
   }, [dataset]);
@@ -63,7 +57,7 @@ export default function AuditView({ dataset, onDeleteData, onBatchDelete }) {
             <span>Audit Kualitas & Integritas Data Otomatis</span>
           </h3>
           <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-            Mendeteksi inkonsistensi matematis, data duplikat, dan nilai kosong pada seluruh baris database PT. Sukun.
+            Mendeteksi inkonsistensi matematis, data duplikat, dan nilai kosong pada seluruh baris database PT. SUKUN WARTONO INDONESIA.
           </p>
         </div>
 

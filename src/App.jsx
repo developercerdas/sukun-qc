@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import confetti from 'canvas-confetti';
-import Sidebar from './components/Sidebar';
-import Header from './components/Header';
+import ModernSidebar from './components/ModernSidebar';
+import ModernHeader from './components/ModernHeader';
 import DashboardView from './components/DashboardView';
 import InputView from './components/InputView';
 import ImportExcelView from './components/ImportExcelView';
 import ProduksiView from './components/ProduksiView';
-import KerusakanView from './components/KerusakanView';
+import AnatomiRokokView from './components/AnatomiRokokView';
 import AnalisisView from './components/AnalisisView';
 import LaporanView from './components/LaporanView';
 import AuditView from './components/AuditView';
@@ -25,14 +25,17 @@ import {
   logActivity
 } from './services/storage';
 import { getSupabaseClient } from './services/supabaseClient';
-import { BULAN_LIST } from './constants';
+import { soundFx } from './utils/soundHelper';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
   const [darkMode, setDarkMode] = useState(() => {
     return localStorage.getItem('sukun_qc_dark_mode') === 'true';
   });
+  const [soundEnabled, setSoundEnabled] = useState(soundFx.enabled);
 
   const [dataset, setDataset] = useState([]);
   const [references, setReferences] = useState({ namaTelak: [], lokal: [] });
@@ -50,7 +53,7 @@ export default function App() {
   // Modal Edit
   const [editingRecord, setEditingRecord] = useState(null);
 
-  // Toggle Dark Mode class pada <html> / <body>
+  // Toggle Dark Mode
   useEffect(() => {
     if (darkMode) {
       document.documentElement.classList.add('dark');
@@ -60,6 +63,12 @@ export default function App() {
       localStorage.setItem('sukun_qc_dark_mode', 'false');
     }
   }, [darkMode]);
+
+  const toggleSound = () => {
+    soundFx.enabled = !soundEnabled;
+    setSoundEnabled(!soundEnabled);
+    if (!soundEnabled) soundFx.playClick();
+  };
 
   // Load Data awal
   const loadAllData = async () => {
@@ -99,14 +108,15 @@ export default function App() {
     return list.length ? list : references.lokal;
   }, [dataset, references.lokal]);
 
-  // Label periode aktif untuk header
-  const periodLabel = useMemo(() => {
-    const parts = [];
-    if (filters.year) parts.push(`Tahun ${filters.year}`);
-    if (filters.month) parts.push(BULAN_LIST[filters.month - 1]);
-    if (filters.lokal) parts.push(`(${filters.lokal})`);
-    return parts.length ? parts.join(' ') : 'Semua Periode';
-  }, [filters]);
+  // Overall Live Stats untuk Sidebar Widget
+  const totalGarapan = useMemo(() => {
+    return dataset.reduce((s, d) => s + (Number(d.GARAPAN) || 0), 0);
+  }, [dataset]);
+
+  const liveRatio = useMemo(() => {
+    const totalTelak = dataset.reduce((s, d) => s + (Number(d.KERUSAKAN_TELAK) || 0), 0);
+    return totalGarapan > 0 ? ((totalTelak / totalGarapan) * 100).toFixed(2) : '0.00';
+  }, [dataset, totalGarapan]);
 
   // Handlers CRUD
   const handleAddData = async (formData) => {
@@ -116,11 +126,11 @@ export default function App() {
   };
 
   const handleBatchImport = async (rows) => {
-    // Simpan semua baris dari Excel
     for (const r of rows) {
       await addProduksi(r);
     }
     await logActivity('IMPORT_EXCEL', `Mengimpor ${rows.length} data produksi dari file Excel`);
+    soundFx.playSuccess();
     confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
     await loadAllData();
   };
@@ -132,6 +142,7 @@ export default function App() {
   const handleSaveEdit = async (id, updatedForm) => {
     await updateProduksi(id, updatedForm);
     setEditingRecord(null);
+    soundFx.playSuccess();
     await loadAllData();
   };
 
@@ -158,31 +169,36 @@ export default function App() {
   };
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-50 dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans antialiased">
-      {/* Sidebar Navigation */}
-      <Sidebar
+    <div className="min-h-screen flex bg-slate-100 dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans antialiased">
+      {/* Modern Floating Left Sidebar */}
+      <ModernSidebar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         collapsed={sidebarCollapsed}
         setCollapsed={setSidebarCollapsed}
+        mobileOpen={mobileSidebarOpen}
+        setMobileOpen={setMobileSidebarOpen}
+        soundEnabled={soundEnabled}
+        toggleSound={toggleSound}
+        liveRatio={liveRatio}
+        totalGarapan={totalGarapan}
       />
 
-      {/* Main App Container */}
-      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
-        {/* Header Bar */}
-        <Header
+      {/* Main Screen Canvas */}
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        {/* Modern Top Header */}
+        <ModernHeader
           activeTab={activeTab}
-          periodLabel={periodLabel}
+          onOpenMobileSidebar={() => setMobileSidebarOpen(true)}
+          darkMode={darkMode}
+          setDarkMode={setDarkMode}
           isSupabaseConnected={isSupabaseConnected}
           isRefreshing={isRefreshing}
           onRefresh={loadAllData}
-          darkMode={darkMode}
-          setDarkMode={setDarkMode}
-          onToggleSidebar={() => setSidebarCollapsed(!sidebarCollapsed)}
         />
 
-        {/* Dynamic Views Scrollable Area */}
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 bg-slate-50 dark:bg-slate-950 transition-colors">
+        {/* Dynamic Views Canvas */}
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
           {activeTab === 'dashboard' && (
             <DashboardView
               dataset={dataset}
@@ -212,7 +228,7 @@ export default function App() {
             />
           )}
 
-          {activeTab === 'kerusakan' && <KerusakanView dataset={dataset} />}
+          {activeTab === 'anatomi' && <AnatomiRokokView dataset={dataset} />}
 
           {activeTab === 'analisis' && <AnalisisView dataset={dataset} />}
 

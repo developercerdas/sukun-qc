@@ -5,10 +5,22 @@ const LOCAL_STORAGE_KEY = 'sukun_qc_dataset_v1';
 const REFS_STORAGE_KEY = 'sukun_qc_references_v1';
 const LOGS_STORAGE_KEY = 'sukun_qc_logs_v1';
 
-// Inisialisasi awal localStorage bila kosong
+// Inisialisasi awal localStorage (murni kosong untuk pengujian)
 export function initLocalStorage() {
-  if (!localStorage.getItem(LOCAL_STORAGE_KEY)) {
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(INITIAL_SAMPLE_DATA));
+  const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
+  if (!raw) {
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify([]));
+  } else {
+    try {
+      const items = JSON.parse(raw);
+      // Bersihkan data dummy lama bila ada agar database murni kosong
+      const cleaned = Array.isArray(items) ? items.filter(it => !String(it.id).startsWith('sample-')) : [];
+      if (cleaned.length !== items.length) {
+        localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(cleaned));
+      }
+    } catch {
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify([]));
+    }
   }
   if (!localStorage.getItem(REFS_STORAGE_KEY)) {
     localStorage.setItem(REFS_STORAGE_KEY, JSON.stringify(INITIAL_REFERENCES));
@@ -18,7 +30,7 @@ export function initLocalStorage() {
       id: Date.now(),
       timestamp: new Date().toISOString(),
       aksi: 'INIT',
-      keterangan: 'Sistem Sukun QC pertama kali diinisialisasi'
+      keterangan: 'Sistem Sukun QC siap digunakan (Database kosong untuk pengujian)'
     }];
     localStorage.setItem(LOGS_STORAGE_KEY, JSON.stringify(initLog));
   }

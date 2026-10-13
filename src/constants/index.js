@@ -3,15 +3,73 @@ export const BULAN_LIST = [
   "Agustus", "September", "Oktober", "November", "Desember"
 ];
 
+export const BIAYA_PER_BATANG_RUSAK = 150; // Estimasi kerugian bahan baku (Tembakau, Papir, Saus) Rp 150 / batang
+
 export const KERUSAKAN_KEYS = [
-  { key: "CW", label: "Cowong", color: "#ef4444" },
-  { key: "PK", label: "Papir Kusut", color: "#f97316" },
-  { key: "LK", label: "Lem Kurang", color: "#f59e0b" },
-  { key: "TK", label: "Talipan Kotor", color: "#10b981" },
-  { key: "MT", label: "Muntir", color: "#3b82f6" },
-  { key: "MD", label: "Medot", color: "#6366f1" },
-  { key: "AT", label: "Atos", color: "#8b5cf6" },
-  { key: "MM", label: "Mekar Mingkup", color: "#ec4899" }
+  {
+    key: "CW",
+    label: "Cowong",
+    shortDesc: "Ujung batang berlubang / tembakau rontok",
+    location: "Ujung Rokok",
+    color: "#ef4444",
+    mitigation: "Periksa ketajaman pisau pemotong telak dan kepadatan racikan tembakau di ujung corong."
+  },
+  {
+    key: "PK",
+    label: "Papir Kusut",
+    shortDesc: "Kertas papir bergelombang / terlipat",
+    location: "Badan Batang",
+    color: "#f97316",
+    mitigation: "Periksa kelembaban kertas papir dan tekanan roll penarik meja agar tarikan rata."
+  },
+  {
+    key: "LK",
+    label: "Lem Kurang",
+    shortDesc: "Sambungan papir terbuka / tidak rapat",
+    location: "Garis Lem",
+    color: "#f59e0b",
+    mitigation: "Periksa kekentalan lem kanji/perekat dan kebersihan spuit aplikator lem agar tidak tersumbat."
+  },
+  {
+    key: "TK",
+    label: "Talipan Kotor",
+    shortDesc: "Noda oli / kotoran mesin di batang",
+    location: "Permukaan Papir",
+    color: "#10b981",
+    mitigation: "Bersihkan sabuk konveyor/talipan gilingan dari akumulasi oli dan debu tembakau."
+  },
+  {
+    key: "MT",
+    label: "Muntir",
+    shortDesc: "Batang rokok terpelintir spiral",
+    location: "Struktur Batang",
+    color: "#06b6d4",
+    mitigation: "Kalibrasi keselarasan rol pemutar meja giling agar kedua sisi menggulung seimbang."
+  },
+  {
+    key: "MD",
+    label: "Medot",
+    shortDesc: "Batang rokok patah / putus di tengah",
+    location: "Badan Batang",
+    color: "#6366f1",
+    mitigation: "Atur elastisitas papir dan hindari tarikan menyentak saat penggulungan manual."
+  },
+  {
+    key: "AT",
+    label: "Atos",
+    shortDesc: "Batang terlalu padat / keras melebihi standar",
+    location: "Kepadatan Isi",
+    color: "#8b5cf6",
+    mitigation: "Sesuaikan takaran timbangan tembakau per batang agar tidak melebihi gramatur standar."
+  },
+  {
+    key: "MM",
+    label: "Mekar Mingkup",
+    shortDesc: "Diameter ujung rokok tidak seragam",
+    location: "Ujung Rokok",
+    color: "#ec4899",
+    mitigation: "Periksa keausan cetakan corong telak agar lingkaran diameter tetap presisi."
+  }
 ];
 
 export const INITIAL_REFERENCES = {
@@ -25,97 +83,5 @@ export const INITIAL_REFERENCES = {
   ]
 };
 
-export const INITIAL_SAMPLE_DATA = [
-  {
-    id: "sample-1",
-    YEAR: 2026,
-    MONTH: "Oktober",
-    MONTH_NUMBER: 10,
-    TANGGAL: "2026-10-12",
-    NAMA: "Siti Aminah",
-    LOKAL: "Lokal 1",
-    ABSENSI: "Hadir",
-    GARAPAN: 3500,
-    CW: 4,
-    PK: 3,
-    LK: 5,
-    TK: 2,
-    MT: 1,
-    MD: 2,
-    AT: 1,
-    MM: 0,
-    KERUSAKAN_TELAK: 18,
-    KERUSAKAN_MANDOR: 12,
-    KEKURANGAN_PAPIR: 2,
-    created_at: "2026-10-12T08:30:00Z"
-  },
-  {
-    id: "sample-2",
-    YEAR: 2026,
-    MONTH: "Oktober",
-    MONTH_NUMBER: 10,
-    TANGGAL: "2026-10-12",
-    NAMA: "Sri Wahyuni",
-    LOKAL: "Lokal 2",
-    ABSENSI: "Hadir",
-    GARAPAN: 3800,
-    CW: 2,
-    PK: 5,
-    LK: 3,
-    TK: 1,
-    MT: 0,
-    MD: 3,
-    AT: 0,
-    MM: 1,
-    KERUSAKAN_TELAK: 15,
-    KERUSAKAN_MANDOR: 9,
-    KEKURANGAN_PAPIR: 0,
-    created_at: "2026-10-12T08:35:00Z"
-  },
-  {
-    id: "sample-3",
-    YEAR: 2026,
-    MONTH: "Oktober",
-    MONTH_NUMBER: 10,
-    TANGGAL: "2026-10-13",
-    NAMA: "Suparti",
-    LOKAL: "Lokal 1",
-    ABSENSI: "Hadir",
-    GARAPAN: 3200,
-    CW: 6,
-    PK: 8,
-    LK: 4,
-    TK: 3,
-    MT: 2,
-    MD: 1,
-    AT: 2,
-    MM: 1,
-    KERUSAKAN_TELAK: 27,
-    KERUSAKAN_MANDOR: 18,
-    KEKURANGAN_PAPIR: 5,
-    created_at: "2026-10-13T09:00:00Z"
-  },
-  {
-    id: "sample-4",
-    YEAR: 2026,
-    MONTH: "Oktober",
-    MONTH_NUMBER: 10,
-    TANGGAL: "2026-10-13",
-    NAMA: "Ngatemi",
-    LOKAL: "Lokal 3",
-    ABSENSI: "Hadir",
-    GARAPAN: 4000,
-    CW: 3,
-    PK: 4,
-    LK: 2,
-    TK: 0,
-    MT: 1,
-    MD: 2,
-    AT: 1,
-    MM: 0,
-    KERUSAKAN_TELAK: 13,
-    KERUSAKAN_MANDOR: 7,
-    KEKURANGAN_PAPIR: 1,
-    created_at: "2026-10-13T09:15:00Z"
-  }
-];
+export const INITIAL_SAMPLE_DATA = [];
+

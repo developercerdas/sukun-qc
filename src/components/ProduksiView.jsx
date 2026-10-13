@@ -8,15 +8,17 @@ import {
   Eye,
   EyeOff,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  FileText
 } from 'lucide-react';
 import { exportToExcel, exportToCSV } from '../services/exportHelper';
-import { KERUSAKAN_KEYS } from '../constants';
+import CetakKartuGilingModal from './CetakKartuGilingModal';
 
 export default function ProduksiView({ dataset, onDeleteData, onEditData }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [showDetailedDamages, setShowDetailedDamages] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [kartuRecord, setKartuRecord] = useState(null);
   const pageSize = 15;
 
   const filteredData = useMemo(() => {
@@ -26,8 +28,10 @@ export default function ProduksiView({ dataset, onDeleteData, onEditData }) {
       const matchNama = String(d.NAMA || '').toLowerCase().includes(q);
       const matchLokal = String(d.LOKAL || '').toLowerCase().includes(q);
       const matchTgl = String(d.TANGGAL || '').toLowerCase().includes(q);
+      const matchHari = String(d.HARI || '').toLowerCase().includes(q);
+      const matchJam = String(d.JAM_WIB || '').toLowerCase().includes(q);
       const matchAbsensi = String(d.ABSENSI || '').toLowerCase().includes(q);
-      return matchNama || matchLokal || matchTgl || matchAbsensi;
+      return matchNama || matchLokal || matchTgl || matchHari || matchJam || matchAbsensi;
     });
   }, [dataset, searchQuery]);
 
@@ -44,21 +48,21 @@ export default function ProduksiView({ dataset, onDeleteData, onEditData }) {
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 max-w-7xl mx-auto">
       {/* Top Toolbar */}
-      <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white dark:bg-slate-900 p-4 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
         {/* Search Input */}
         <div className="relative flex-1 max-w-md">
           <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder="Cari nama telak, lokal, tanggal..."
+            placeholder="Cari nama telak, lokal, hari, tanggal, jam WIB..."
             value={searchQuery}
             onChange={(e) => {
               setSearchQuery(e.target.value);
               setCurrentPage(1);
             }}
-            className="w-full text-sm pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-amber-500 focus:outline-none text-slate-900 dark:text-white"
+            className="w-full text-xs pl-10 pr-4 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:outline-none text-slate-900 dark:text-white"
           />
         </div>
 
@@ -66,17 +70,17 @@ export default function ProduksiView({ dataset, onDeleteData, onEditData }) {
         <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={() => setShowDetailedDamages(!showDetailedDamages)}
-            className="px-3 py-2 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors flex items-center space-x-1.5"
+            className="px-3.5 py-2 text-xs font-semibold rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 transition-colors flex items-center space-x-1.5"
           >
             {showDetailedDamages ? (
               <>
                 <EyeOff className="w-4 h-4" />
-                <span>Sembunyikan 8 Kolom Kerusakan</span>
+                <span>Sembunyikan 8 Defect</span>
               </>
             ) : (
               <>
                 <Eye className="w-4 h-4" />
-                <span>Tampilkan 8 Kolom Kerusakan</span>
+                <span>Rincian 8 Defect</span>
               </>
             )}
           </button>
@@ -100,7 +104,7 @@ export default function ProduksiView({ dataset, onDeleteData, onEditData }) {
       </div>
 
       {/* Table Card */}
-      <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs border-collapse">
             <thead>
@@ -108,7 +112,7 @@ export default function ProduksiView({ dataset, onDeleteData, onEditData }) {
                 <th className="p-3.5">Tanggal</th>
                 <th className="p-3.5">Nama Telak</th>
                 <th className="p-3.5">Lokal</th>
-                <th className="p-3.5">Absensi</th>
+                <th className="p-3.5">Waktu (WIB)</th>
                 <th className="p-3.5 text-right">Garapan</th>
 
                 {/* 8 Detail Kerusakan jika toggled */}
@@ -118,24 +122,25 @@ export default function ProduksiView({ dataset, onDeleteData, onEditData }) {
                     <th className="p-2 text-center text-orange-500 font-mono">PK</th>
                     <th className="p-2 text-center text-amber-500 font-mono">LK</th>
                     <th className="p-2 text-center text-emerald-500 font-mono">TK</th>
-                    <th className="p-2 text-center text-blue-500 font-mono">MT</th>
+                    <th className="p-2 text-center text-cyan-500 font-mono">MT</th>
                     <th className="p-2 text-center text-indigo-500 font-mono">MD</th>
                     <th className="p-2 text-center text-purple-500 font-mono">AT</th>
                     <th className="p-2 text-center text-pink-500 font-mono">MM</th>
                   </>
                 )}
 
-                <th className="p-3.5 text-right text-red-600 dark:text-red-400">Kerusakan Telak</th>
-                <th className="p-3.5 text-right text-amber-600 dark:text-amber-400">Kerusakan Mandor</th>
+                <th className="p-3.5 text-right text-red-600 dark:text-red-400">Telak</th>
+                <th className="p-3.5 text-right text-amber-600 dark:text-amber-400">Mandor</th>
                 <th className="p-3.5 text-right">Rasio (%)</th>
-                <th className="p-3.5 text-center">Aksi</th>
+                <th className="p-3.5 text-center">Status</th>
+                <th className="p-3.5 text-center">Aksi & Slip</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
               {paginatedData.length === 0 ? (
                 <tr>
-                  <td colSpan={showDetailedDamages ? 16 : 8} className="p-8 text-center text-slate-500">
-                    Tidak ada data produksi yang sesuai dengan pencarian.
+                  <td colSpan={showDetailedDamages ? 17 : 9} className="p-8 text-center text-slate-500">
+                    Belum ada data produksi. Silakan lakukan Input Tally Meja atau Import dari Excel untuk memulai pengujian.
                   </td>
                 </tr>
               ) : (
@@ -143,14 +148,18 @@ export default function ProduksiView({ dataset, onDeleteData, onEditData }) {
                   const garapan = Number(d.GARAPAN || 0);
                   const telak = Number(d.KERUSAKAN_TELAK || 0);
                   const rasio = garapan > 0 ? ((telak / garapan) * 100).toFixed(2) : '0.00';
+                  const isLulus = Number(rasio) <= 0.8;
+                  const isWarning = Number(rasio) > 0.8 && Number(rasio) <= 1.2;
 
                   return (
                     <tr
                       key={d.id}
                       className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors"
                     >
-                      <td className="p-3.5 font-medium whitespace-nowrap">{d.TANGGAL}</td>
-                      <td className="p-3.5 font-bold text-slate-900 dark:text-white whitespace-nowrap">
+                      <td className="p-3.5 font-medium whitespace-nowrap">
+                        {d.HARI ? `${d.HARI}, ` : ''}{d.TANGGAL}
+                      </td>
+                      <td className="p-3.5 font-black text-slate-900 dark:text-white whitespace-nowrap">
                         {d.NAMA}
                       </td>
                       <td className="p-3.5 whitespace-nowrap">
@@ -158,18 +167,10 @@ export default function ProduksiView({ dataset, onDeleteData, onEditData }) {
                           {d.LOKAL}
                         </span>
                       </td>
-                      <td className="p-3.5 whitespace-nowrap">
-                        <span
-                          className={`px-2 py-0.5 rounded-md text-[11px] font-semibold ${
-                            d.ABSENSI === 'Hadir'
-                              ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400'
-                              : 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400'
-                          }`}
-                        >
-                          {d.ABSENSI || 'Hadir'}
-                        </span>
+                      <td className="p-3.5 whitespace-nowrap text-slate-500 text-[11px] font-mono font-semibold">
+                        {d.JAM_WIB || '- WIB'}
                       </td>
-                      <td className="p-3.5 text-right font-bold whitespace-nowrap">
+                      <td className="p-3.5 text-right font-black whitespace-nowrap">
                         {garapan.toLocaleString('id-ID')}
                       </td>
 
@@ -193,17 +194,32 @@ export default function ProduksiView({ dataset, onDeleteData, onEditData }) {
                       <td className="p-3.5 text-right font-semibold text-amber-600 dark:text-amber-400 whitespace-nowrap">
                         {Number(d.KERUSAKAN_MANDOR || 0).toLocaleString('id-ID')}
                       </td>
-                      <td className="p-3.5 text-right whitespace-nowrap">
+                      <td className="p-3.5 text-right whitespace-nowrap font-black">
+                        {rasio}%
+                      </td>
+                      <td className="p-3.5 text-center whitespace-nowrap">
                         <span
-                          className={`font-bold ${
-                            Number(rasio) > 1.0 ? 'text-red-600' : 'text-emerald-600'
+                          className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            isLulus
+                              ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                              : isWarning
+                              ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
+                              : 'bg-red-100 text-red-800 dark:bg-red-950/60 dark:text-red-300'
                           }`}
                         >
-                          {rasio}%
+                          {isLulus ? 'LULUS' : isWarning ? 'WASPADA' : 'REJECT'}
                         </span>
                       </td>
                       <td className="p-3.5 text-center whitespace-nowrap">
                         <div className="flex items-center justify-center space-x-1.5">
+                          {/* Cetak Kartu Giling */}
+                          <button
+                            onClick={() => setKartuRecord(d)}
+                            title="Cetak Kartu Giling / Slip Meja"
+                            className="p-1.5 rounded-lg text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/50 transition-colors"
+                          >
+                            <FileText className="w-4 h-4" />
+                          </button>
                           <button
                             onClick={() => onEditData(d)}
                             title="Edit Data"
@@ -229,7 +245,7 @@ export default function ProduksiView({ dataset, onDeleteData, onEditData }) {
         </div>
 
         {/* Pagination Footer */}
-        <div className="p-4 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 dark:text-slate-400 gap-3">
+        <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 dark:text-slate-400 gap-3">
           <span>
             Menampilkan {paginatedData.length} dari {filteredData.length} data produksi
           </span>
@@ -237,23 +253,30 @@ export default function ProduksiView({ dataset, onDeleteData, onEditData }) {
             <button
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               disabled={currentPage === 1}
-              className="p-2 rounded-lg border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-40 transition-colors"
+              className="p-2 rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-40 transition-colors"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
-            <span className="font-semibold text-slate-700 dark:text-slate-300">
+            <span className="font-bold text-slate-700 dark:text-slate-300">
               Halaman {currentPage} dari {totalPages}
             </span>
             <button
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages}
-              className="p-2 rounded-lg border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-40 transition-colors"
+              className="p-2 rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-40 transition-colors"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
         </div>
       </div>
+
+      {/* Kartu Giling Modal */}
+      <CetakKartuGilingModal
+        isOpen={!!kartuRecord}
+        onClose={() => setKartuRecord(null)}
+        record={kartuRecord}
+      />
     </div>
   );
 }

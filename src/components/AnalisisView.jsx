@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { Award, AlertCircle, TrendingUp, CheckCircle, ShieldAlert } from 'lucide-react';
+import { Award, ShieldAlert } from 'lucide-react';
 
 export default function AnalisisView({ dataset }) {
   // Peringkat Berdasarkan Operator (Nama Telak)

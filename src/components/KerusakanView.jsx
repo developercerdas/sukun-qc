@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { KERUSAKAN_KEYS } from '../constants';
-import { AlertTriangle, Wrench, CheckCircle } from 'lucide-react';
+import { AlertTriangle, Wrench } from 'lucide-react';
 
 const ACTION_TIPS = {
   CW: 'Periksa ketajaman pisau pemotong dan kepadatan racikan tembakau di ujung telak.',

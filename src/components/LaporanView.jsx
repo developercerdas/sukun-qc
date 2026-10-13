@@ -2,25 +2,20 @@ import React, { useState, useMemo } from 'react';
 import {
   Printer,
   FileSpreadsheet,
-  Download,
-  Calendar,
-  Building,
-  CheckCircle,
   FileText
 } from 'lucide-react';
-import { exportToExcel, exportToCSV } from '../services/exportHelper';
-import { BULAN_LIST } from '../constants';
+import { exportToExcel } from '../services/exportHelper';
+
+function getTodayString() {
+  const d = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
 
 export default function LaporanView({ dataset, references }) {
-  const getTodayStr = () => {
-    const d = new Date();
-    const pad = (n) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-  };
-
-  const [filterDate, setFilterDate] = useState(getTodayStr());
+  const [filterDate, setFilterDate] = useState(getTodayString);
   const [filterLokal, setFilterLokal] = useState('');
-  const [penanggungJawab, setPenanggungJawab] = useState('Mandor QC Sukun');
+  const [penanggungJawab, setPenanggungJawab] = useState('Mandor QC PT. SUKUN WARTONO INDONESIA');
   const [kepalaBagian, setKepalaBagian] = useState('Kepala Bagian Produksi');
 
   // Filter dataset untuk laporan yang dicetak
@@ -57,7 +52,7 @@ export default function LaporanView({ dataset, references }) {
               <span>Pusat Cetak Laporan Resmi & Ekspor</span>
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Format lembar kendali mutu berstandar PT. Sukun Wartono Indonesia. Siap dicetak ke printer atau disimpan sebagai PDF.
+              Format lembar kendali mutu berstandar PT. SUKUN WARTONO INDONESIA. Siap dicetak ke printer atau disimpan sebagai PDF.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
@@ -69,7 +64,7 @@ export default function LaporanView({ dataset, references }) {
               <span>Cetak / Simpan PDF</span>
             </button>
             <button
-              onClick={() => exportToExcel(reportData, `Laporan_QC_Sukun_${filterDate || 'Semua'}.xlsx`)}
+              onClick={() => exportToExcel(reportData, `Laporan_QC_PT_Sukun_Wartono_Indonesia_${filterDate || 'Semua'}.xlsx`)}
               className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm flex items-center space-x-2 transition-colors"
             >
               <FileSpreadsheet className="w-4 h-4" />
@@ -287,7 +282,7 @@ export default function LaporanView({ dataset, references }) {
 
           <div>
             <p className="text-slate-600">Mengetahui & Menyetujui:</p>
-            <p className="font-semibold text-slate-800 mt-0.5">Kepala Bagian Produksi Sukun</p>
+            <p className="font-semibold text-slate-800 mt-0.5">Kepala Bagian Produksi PT. SUKUN WARTONO INDONESIA</p>
             <div className="h-16 flex items-end justify-center">
               <div className="w-48 border-b border-slate-800" />
             </div>
