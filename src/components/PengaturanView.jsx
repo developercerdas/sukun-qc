@@ -81,13 +81,15 @@ export default function PengaturanView({
     }
   };
 
-  const sqlSchema = `-- SKEMA DATABASE SUPABASE UNTUK PT SUKUN QUALITY CONTROL
+  const sqlSchema = `-- SKEMA DATABASE SUPABASE UNTUK PT. SUKUN WARTONO INDONESIA
 CREATE TABLE IF NOT EXISTS produksi (
   id BIGSERIAL PRIMARY KEY,
   "YEAR" INTEGER NOT NULL,
   "MONTH" VARCHAR(50) NOT NULL,
   "MONTH_NUMBER" INTEGER NOT NULL,
   "TANGGAL" DATE NOT NULL,
+  "HARI" VARCHAR(50) DEFAULT '',
+  "JAM_WIB" VARCHAR(50) DEFAULT '',
   "NAMA" VARCHAR(255) NOT NULL,
   "LOKAL" VARCHAR(100) NOT NULL,
   "ABSENSI" VARCHAR(50) DEFAULT 'Hadir',
@@ -106,8 +108,27 @@ CREATE TABLE IF NOT EXISTS produksi (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS referensi (
+  id BIGSERIAL PRIMARY KEY,
+  kategori VARCHAR(50) NOT NULL,
+  nilai VARCHAR(255) NOT NULL UNIQUE,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS log_aktivitas (
+  id BIGSERIAL PRIMARY KEY,
+  timestamp TIMESTAMPTZ DEFAULT NOW(),
+  aksi VARCHAR(50) NOT NULL,
+  keterangan TEXT NOT NULL
+);
+
 ALTER TABLE produksi ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Public Full Access" ON produksi FOR ALL USING (true) WITH CHECK (true);`;
+ALTER TABLE referensi ENABLE ROW LEVEL SECURITY;
+ALTER TABLE log_aktivitas ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Public Full Access on produksi" ON produksi FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Public Full Access on referensi" ON referensi FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Public Full Access on log_aktivitas" ON log_aktivitas FOR ALL USING (true) WITH CHECK (true);`;
 
   const copySqlToClipboard = () => {
     navigator.clipboard.writeText(sqlSchema);

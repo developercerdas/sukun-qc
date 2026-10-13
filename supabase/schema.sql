@@ -1,7 +1,7 @@
 -- ========================================================
 -- SKEMA DATABASE SUPABASE (POSTGRESQL)
 -- SUKUN QUALITY CONTROL — SISTEM PENDATAAN KERUSAKAN ROKOK
--- PT. Sukun Wartono Indonesia
+-- PT. SUKUN WARTONO INDONESIA
 -- ========================================================
 
 -- 1. Tabel Utama: produksi
@@ -11,6 +11,8 @@ CREATE TABLE IF NOT EXISTS produksi (
   "MONTH" VARCHAR(50) NOT NULL,
   "MONTH_NUMBER" INTEGER NOT NULL,
   "TANGGAL" DATE NOT NULL,
+  "HARI" VARCHAR(50) DEFAULT '',
+  "JAM_WIB" VARCHAR(50) DEFAULT '',
   "NAMA" VARCHAR(255) NOT NULL,
   "LOKAL" VARCHAR(100) NOT NULL,
   "ABSENSI" VARCHAR(50) DEFAULT 'Hadir',
