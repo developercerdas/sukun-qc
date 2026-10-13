@@ -14,7 +14,13 @@ import {
 import { exportToExcel, exportToCSV } from '../services/exportHelper';
 import CetakKartuGilingModal from './CetakKartuGilingModal';
 
-export default function ProduksiView({ dataset, onDeleteData, onEditData }) {
+export default function ProduksiView({
+  dataset,
+  onDeleteData,
+  onEditData,
+  canEdit = true,
+  canDelete = true
+}) {
   const [searchQuery, setSearchQuery] = useState('');
   const [showDetailedDamages, setShowDetailedDamages] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -220,20 +226,24 @@ export default function ProduksiView({ dataset, onDeleteData, onEditData }) {
                           >
                             <FileText className="w-4 h-4" />
                           </button>
-                          <button
-                            onClick={() => onEditData(d)}
-                            title="Edit Data"
-                            className="p-1.5 rounded-lg text-slate-500 hover:text-amber-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                          >
-                            <Edit3 className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(d.id, d.NAMA, d.TANGGAL)}
-                            title="Hapus Data"
-                            className="p-1.5 rounded-lg text-slate-500 hover:text-red-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          {canEdit && (
+                            <button
+                              onClick={() => onEditData(d)}
+                              title="Edit Data"
+                              className="p-1.5 rounded-lg text-slate-500 hover:text-amber-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                            >
+                              <Edit3 className="w-4 h-4" />
+                            </button>
+                          )}
+                          {canDelete && (
+                            <button
+                              onClick={() => handleDelete(d.id, d.NAMA, d.TANGGAL)}
+                              title="Hapus Data"
+                              className="p-1.5 rounded-lg text-slate-500 hover:text-red-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>

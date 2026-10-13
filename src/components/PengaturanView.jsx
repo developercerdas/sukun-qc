@@ -9,7 +9,15 @@ import {
   Download,
   Upload,
   History,
-  GitBranch
+  GitBranch,
+  ShieldCheck,
+  Users,
+  Key,
+  Trash2,
+  UserPlus,
+  Sliders,
+  CheckCircle2,
+  AlertTriangle
 } from 'lucide-react';
 import {
   getSupabaseConfig,
@@ -17,6 +25,14 @@ import {
   testSupabaseConnection
 } from '../services/supabaseClient';
 import { backupAll, restoreAll } from '../services/storage';
+import {
+  getAllUsers,
+  addUser,
+  deleteUser,
+  ROLE_PERMISSIONS,
+  MASTER_QC_RULES
+} from '../services/authService';
+import { soundFx } from '../utils/soundHelper';
 
 export default function PengaturanView({
   references,
@@ -32,6 +48,16 @@ export default function PengaturanView({
   const [copiedSql, setCopiedSql] = useState(false);
   const [newNama, setNewNama] = useState('');
   const [newLokal, setNewLokal] = useState('');
+
+  // Master Users State
+  const [usersList, setUsersList] = useState(() => getAllUsers());
+  const [newUserForm, setNewUserForm] = useState({
+    username: '',
+    password: '',
+    name: '',
+    role: 'mandor'
+  });
+  const [userActionMsg, setUserActionMsg] = useState('');
 
   useEffect(() => {
     const cfg = getSupabaseConfig();
@@ -60,24 +86,52 @@ export default function PengaturanView({
     }
   };
 
-  const handleSaveConfig = async () => {
+  const handleSaveConfig = () => {
     saveSupabaseConfig(supabaseUrl, supabaseKey);
-    alert('Konfigurasi database berhasil disimpan!');
-    await onRefreshData();
+    alert('Konfigurasi database berhasil disimpan.');
+    onRefreshData();
   };
 
-  const handleSwitchToLocal = async () => {
-    if (
-      window.confirm(
-        'Beralih ke mode penyimpanan lokal? Aplikasi akan menggunakan database browser komputer ini.'
-      )
-    ) {
+  const handleSwitchToLocal = () => {
+    if (window.confirm('Beralih ke penyimpanan lokal (offline)?')) {
       saveSupabaseConfig('', '');
       setSupabaseUrl('');
       setSupabaseKey('');
-      setTestResult(null);
-      await onRefreshData();
+      onRefreshData();
       alert('Sistem kini berjalan dalam Mode Penyimpanan Lokal (Offline).');
+    }
+  };
+
+  const handleAddUserSubmit = (e) => {
+    e.preventDefault();
+    setUserActionMsg('');
+    try {
+      soundFx.playClick();
+      addUser(newUserForm);
+      setUsersList(getAllUsers());
+      setNewUserForm({ username: '', password: '', name: '', role: 'mandor' });
+      soundFx.playSuccess();
+      setUserActionMsg('Akun pengguna baru berhasil ditambahkan!');
+      setTimeout(() => setUserActionMsg(''), 4000);
+    } catch (err) {
+      soundFx.playAlert();
+      alert(err.message);
+    }
+  };
+
+  const handleDeleteUserClick = (id, username) => {
+    if (window.confirm(`Yakin ingin menghapus akun "${username}"?`)) {
+      try {
+        soundFx.playClick();
+        deleteUser(id);
+        setUsersList(getAllUsers());
+        soundFx.playSuccess();
+        setUserActionMsg(`Akun "${username}" berhasil dihapus.`);
+        setTimeout(() => setUserActionMsg(''), 4000);
+      } catch (err) {
+        soundFx.playAlert();
+        alert(err.message);
+      }
     }
   };
 
@@ -150,45 +204,274 @@ CREATE POLICY "Public Full Access on log_aktivitas" ON log_aktivitas FOR ALL USI
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = async (event) => {
+    reader.onload = async (evt) => {
       try {
-        const json = JSON.parse(event.target.result);
-        await restoreAll(json);
-        alert('Data berhasil dipulihkan dari cadangan!');
-        await onRefreshData();
+        const json = JSON.parse(evt.target.result);
+        const res = await restoreAll(json);
+        if (res.success) {
+          alert('Data berhasil dipulihkan dari cadangan.');
+          onRefreshData();
+        } else {
+          alert('Gagal memulihkan data: ' + res.message);
+        }
       } catch (err) {
-        alert('Gagal memulihkan file: ' + err.message);
+        alert('File JSON tidak valid: ' + err.message);
       }
     };
     reader.readAsText(file);
   };
 
-  const handleAddNama = async (e) => {
+  const handleAddNama = (e) => {
     e.preventDefault();
     if (!newNama.trim()) return;
-    await onAddReference('NAMA_TELAK', newNama.trim());
+    onAddReference('NAMA_TELAK', newNama.trim());
     setNewNama('');
   };
 
-  const handleAddLokal = async (e) => {
+  const handleAddLokal = (e) => {
     e.preventDefault();
     if (!newLokal.trim()) return;
-    await onAddReference('LOKAL', newLokal.trim());
+    onAddReference('LOKAL', newLokal.trim());
     setNewLokal('');
   };
 
   return (
     <div className="space-y-8 max-w-5xl mx-auto pb-12">
-      {/* 1. Pengaturan Database Cloud Supabase */}
+      {/* 1. MASTER RULE: MATRIKS HAK AKSES PERAN PENGGUNA (RBAC) */}
+      <div className="bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 space-y-6">
+        <div>
+          <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center space-x-2">
+            <ShieldCheck className="w-5 h-5 text-emerald-500" />
+            <span>Master Rule: Matriks Peran & Hak Akses (Role-Based Access Control)</span>
+          </h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            Aturan baku kewenangan sistem Quality Control <strong>PT. SUKUN WARTONO INDONESIA</strong> untuk Super Admin, Mandor QC, dan Operator.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {Object.entries(ROLE_PERMISSIONS).map(([roleKey, roleVal]) => (
+            <div
+              key={roleKey}
+              className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 space-y-3 flex flex-col justify-between"
+            >
+              <div>
+                <div className="flex items-center justify-between">
+                  <span className="font-black text-sm text-slate-900 dark:text-white">
+                    {roleVal.label}
+                  </span>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase border ${roleVal.badge}`}>
+                    {roleKey}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-2 leading-relaxed">
+                  {roleVal.description}
+                </p>
+              </div>
+
+              <div className="pt-3 border-t border-slate-200/60 dark:border-slate-700/60">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1.5">
+                  Modul yang Diizinkan:
+                </span>
+                <div className="flex flex-wrap gap-1">
+                  {roleVal.allowedTabs.map((t) => (
+                    <span
+                      key={t}
+                      className="px-2 py-0.5 rounded-md bg-white dark:bg-slate-900 text-[10px] font-mono font-bold text-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-800"
+                    >
+                      {t}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 2. MASTER RULE: STANDAR BAKU MUTU QUALITY CONTROL */}
+      <div className="bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 space-y-5">
+        <div>
+          <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center space-x-2">
+            <Sliders className="w-5 h-5 text-amber-500" />
+            <span>Master Rule: Standar Baku Mutu & Parameter Toleransi Pabrik</span>
+          </h3>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+            Parameter acuan kualitas fisik rokok PT. SUKUN WARTONO INDONESIA yang diterapkan pada kalkulasi otomatis sistem.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+          {MASTER_QC_RULES.map((rule) => (
+            <div
+              key={rule.id}
+              className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/80 flex items-start space-x-3"
+            >
+              <div className="p-2 rounded-xl bg-amber-500/10 text-amber-500 shrink-0 mt-0.5">
+                <CheckCircle2 className="w-4 h-4" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-2">
+                  <h4 className="font-bold text-xs text-slate-900 dark:text-white truncate">
+                    {rule.nama}
+                  </h4>
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-black border shrink-0 ${rule.statusBadge}`}>
+                    {rule.toleransi}
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                  {rule.keterangan}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 3. MANAJEMEN AKUN PENGGUNA (KELOLA LOGIN MANDOR & ADMIN) */}
+      <div className="bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-slate-800">
+          <div>
+            <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center space-x-2">
+              <Users className="w-5 h-5 text-blue-500" />
+              <span>Manajemen Akun Pengguna (Kelola Login)</span>
+            </h3>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+              Kelola kredensial akun para mandor QC dan staf yang memiliki akses masuk ke sistem.
+            </p>
+          </div>
+          {userActionMsg && (
+            <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 animate-fadeIn">
+              {userActionMsg}
+            </span>
+          )}
+        </div>
+
+        {/* Tabel Daftar Pengguna */}
+        <div className="overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-800">
+          <table className="w-full text-left text-xs">
+            <thead className="bg-slate-50 dark:bg-slate-800/80 text-slate-500 dark:text-slate-400 font-bold uppercase text-[10px] border-b border-slate-200 dark:border-slate-800">
+              <tr>
+                <th className="p-3">User</th>
+                <th className="p-3">Username</th>
+                <th className="p-3">Role / Peran</th>
+                <th className="p-3">Password</th>
+                <th className="p-3 text-center">Aksi</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
+              {usersList.map((u) => (
+                <tr key={u.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/40">
+                  <td className="p-3 font-bold text-slate-900 dark:text-white flex items-center space-x-2">
+                    <span className="w-7 h-7 rounded-lg bg-slate-800 text-white font-bold flex items-center justify-center text-[10px]">
+                      {u.avatar || 'US'}
+                    </span>
+                    <span>{u.name}</span>
+                  </td>
+                  <td className="p-3 font-mono font-semibold text-slate-600 dark:text-slate-400">
+                    {u.username}
+                  </td>
+                  <td className="p-3">
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-black border ${u.badgeColor}`}>
+                      {u.roleLabel || u.role}
+                    </span>
+                  </td>
+                  <td className="p-3 font-mono text-slate-500">
+                    ••••••••
+                  </td>
+                  <td className="p-3 text-center">
+                    {u.id !== 'usr-admin' ? (
+                      <button
+                        onClick={() => handleDeleteUserClick(u.id, u.username)}
+                        title="Hapus Akun Pengguna"
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    ) : (
+                      <span className="text-[10px] text-slate-400 italic">Utama</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Form Tambah User Baru */}
+        <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/40 border border-slate-200 dark:border-slate-800">
+          <h4 className="text-xs font-bold text-slate-800 dark:text-slate-200 flex items-center space-x-2 mb-3">
+            <UserPlus className="w-4 h-4 text-emerald-500" />
+            <span>Tambah Akun Baru (Mandor / Staf QC)</span>
+          </h4>
+          <form onSubmit={handleAddUserSubmit} className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+            <div>
+              <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Nama Lengkap</label>
+              <input
+                type="text"
+                required
+                placeholder="Contoh: Mandor Wahyu"
+                value={newUserForm.name}
+                onChange={(e) => setNewUserForm({ ...newUserForm, name: e.target.value })}
+                className="w-full text-xs border rounded-xl px-3 py-2 bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Username Login</label>
+              <input
+                type="text"
+                required
+                placeholder="Contoh: wahyu_qc"
+                value={newUserForm.username}
+                onChange={(e) => setNewUserForm({ ...newUserForm, username: e.target.value })}
+                className="w-full text-xs border rounded-xl px-3 py-2 bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700 font-mono"
+              />
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Role / Peran</label>
+              <select
+                value={newUserForm.role}
+                onChange={(e) => setNewUserForm({ ...newUserForm, role: e.target.value })}
+                className="w-full text-xs border rounded-xl px-3 py-2 bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700"
+              >
+                <option value="mandor">Mandor QC Lantai</option>
+                <option value="operator">Operator / Viewer</option>
+                <option value="admin">Super Admin</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Password</label>
+              <div className="flex space-x-2">
+                <input
+                  type="password"
+                  required
+                  placeholder="Kata sandi"
+                  value={newUserForm.password}
+                  onChange={(e) => setNewUserForm({ ...newUserForm, password: e.target.value })}
+                  className="flex-1 text-xs border rounded-xl px-3 py-2 bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700"
+                />
+                <button
+                  type="submit"
+                  className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm transition-colors shrink-0"
+                >
+                  Simpan
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      {/* 4. PENGATURAN DATABASE CLOUD SUPABASE */}
       <div className="bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200 dark:border-slate-800">
           <div>
             <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center space-x-2">
               <Database className="w-5 h-5 text-amber-500" />
-              <span>Pengaturan Koneksi Database (Supabase Cloud vs Lokal)</span>
+              <span>Pengaturan Database Cloud (Supabase PostgreSQL)</span>
             </h3>
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-              Rekomendasi terbaik: Gunakan <strong>Supabase (PostgreSQL Cloud Gratis)</strong> agar data tersimpan aman di cloud dan bisa diakses bersama dari HP maupun laptop.
+              Data tersimpan aman di cloud <strong>Supabase (PostgreSQL)</strong> dan otomatis tersinkronisasi antar perangkat.
             </p>
           </div>
           <button
@@ -231,8 +514,8 @@ CREATE POLICY "Public Full Access on log_aktivitas" ON log_aktivitas FOR ALL USI
             <div
               className={`p-3.5 rounded-xl text-xs font-semibold flex items-center space-x-2 ${
                 testResult.success
-                  ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
-                  : 'bg-red-50 text-red-800 border border-red-200'
+                  ? 'bg-emerald-50 text-emerald-800 border border-emerald-200 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-800'
+                  : 'bg-red-50 text-red-800 border border-red-200 dark:bg-red-950/40 dark:text-red-300 dark:border-red-800'
               }`}
             >
               <span>{testResult.success ? '✓' : '✗'}</span>
@@ -240,11 +523,11 @@ CREATE POLICY "Public Full Access on log_aktivitas" ON log_aktivitas FOR ALL USI
             </div>
           )}
 
-          <div className="flex items-center space-x-3 pt-2">
+          <div className="flex flex-wrap items-center gap-3 pt-2">
             <button
               onClick={handleTestConnection}
               disabled={isTesting}
-              className="px-4 py-2.5 rounded-xl bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 text-white font-bold text-xs flex items-center space-x-2 transition-colors disabled:opacity-50"
+              className="px-5 py-2.5 rounded-xl bg-slate-900 text-white dark:bg-slate-800 font-bold text-xs hover:bg-slate-800 transition-colors flex items-center space-x-2 disabled:opacity-50"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isTesting ? 'animate-spin' : ''}`} />
               <span>{isTesting ? 'Menguji Koneksi...' : 'Uji Koneksi Cloud'}</span>
@@ -275,60 +558,10 @@ CREATE POLICY "Public Full Access on log_aktivitas" ON log_aktivitas FOR ALL USI
           <pre className="bg-slate-950 text-slate-200 p-4 rounded-xl text-[11px] font-mono overflow-x-auto max-h-40">
             {sqlSchema}
           </pre>
-          <p className="text-[11px] text-slate-500 mt-2">
-            💡 <em>Cara pakai:</em> Buka dashboard Supabase Anda &gt; menu <strong>SQL Editor</strong> &gt; tempel (paste) kode di atas lalu klik <strong>Run</strong>.
-          </p>
         </div>
       </div>
 
-      {/* 2. Panduan Deploy ke GitHub (100% Gratis & Selamanya Aktif) */}
-      <div className="bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 space-y-4">
-        <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center space-x-2">
-          <GitBranch className="w-5 h-5 text-purple-500" />
-          <span>Panduan Deploy Aplikasi ke GitHub & GitHub Pages</span>
-        </h3>
-        <p className="text-xs text-slate-500 dark:text-slate-400">
-          Aplikasi ini telah dirancang 100% kompatibel dengan <strong>GitHub Pages</strong>. Ikuti langkah sederhana berikut untuk mempublikasikan aplikasi:
-        </p>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
-          <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 space-y-2">
-            <div className="w-7 h-7 rounded-lg bg-amber-500 text-slate-950 font-black text-xs flex items-center justify-center">
-              1
-            </div>
-            <h4 className="font-bold text-xs text-slate-900 dark:text-white">Buat Repo di GitHub</h4>
-            <p className="text-[11px] text-slate-500 leading-relaxed">
-              Buka <a href="https://github.com/new" target="_blank" rel="noreferrer" className="text-amber-600 underline">github.com/new</a>, buat repository baru bernama <strong>sukun-qc</strong> (Public).
-            </p>
-          </div>
-
-          <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 space-y-2">
-            <div className="w-7 h-7 rounded-lg bg-amber-500 text-slate-950 font-black text-xs flex items-center justify-center">
-              2
-            </div>
-            <h4 className="font-bold text-xs text-slate-900 dark:text-white">Push Kode dari Laptop</h4>
-            <p className="text-[11px] text-slate-500 leading-relaxed">
-              Jalankan perintah Git di folder <code>D:\APLIKASI\QC</code>:
-              <br />
-              <code>git remote add origin &lt;URL-REPO&gt;</code>
-              <br />
-              <code>git push -u origin main</code>
-            </p>
-          </div>
-
-          <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/80 space-y-2">
-            <div className="w-7 h-7 rounded-lg bg-amber-500 text-slate-950 font-black text-xs flex items-center justify-center">
-              3
-            </div>
-            <h4 className="font-bold text-xs text-slate-900 dark:text-white">Aktivasi GitHub Pages</h4>
-            <p className="text-[11px] text-slate-500 leading-relaxed">
-              Di GitHub &gt; <strong>Settings &gt; Pages</strong> &gt; Source: pilih <strong>GitHub Actions</strong>. Aplikasi otomatis ter-deploy online!
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* 3. Kelola Master Referensi (Nama Telak & Lokal) */}
+      {/* 5. KELOLA MASTER REFERENSI (NAMA TELAK & LOKAL) */}
       <div className="bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 space-y-6">
         <h3 className="text-lg font-bold text-slate-900 dark:text-white">
           Kelola Master Referensi (Autocomplete Dropdown)
@@ -381,7 +614,7 @@ CREATE POLICY "Public Full Access on log_aktivitas" ON log_aktivitas FOR ALL USI
             <form onSubmit={handleAddLokal} className="flex space-x-2">
               <input
                 type="text"
-                placeholder="Tambah nama lokal baru..."
+                placeholder="Tambah lokal baru..."
                 value={newLokal}
                 onChange={(e) => setNewLokal(e.target.value)}
                 className="flex-1 text-xs border rounded-xl px-3 py-2 bg-slate-50 dark:bg-slate-800 border-slate-300 dark:border-slate-700"
@@ -413,64 +646,58 @@ CREATE POLICY "Public Full Access on log_aktivitas" ON log_aktivitas FOR ALL USI
         </div>
       </div>
 
-      {/* 4. Cadangan & Pemulihan (Backup & Restore) */}
-      <div className="bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center space-x-2">
-            <HardDrive className="w-4 h-4 text-emerald-500" />
-            <span>Cadangan & Pemulihan Data (JSON Backup)</span>
-          </h3>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Unduh seluruh database ke file JSON di laptop Anda untuk arsip offline atau pindah komputer.
-          </p>
-        </div>
-        <div className="flex items-center space-x-2 shrink-0">
+      {/* 6. CADANGAN & PULIHKAN DATA (BACKUP & RESTORE) */}
+      <div className="bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 space-y-4">
+        <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center space-x-2">
+          <HardDrive className="w-5 h-5 text-emerald-500" />
+          <span>Cadangan &amp; Pulihkan Data (JSON Backup)</span>
+        </h3>
+        <p className="text-xs text-slate-500 dark:text-slate-400">
+          Unduh seluruh data produksi, master referensi, dan log aktivitas sebagai file JSON lokal untuk antisipasi darurat.
+        </p>
+
+        <div className="flex flex-wrap items-center gap-4 pt-2">
           <button
             onClick={handleBackup}
-            className="px-4 py-2 rounded-xl bg-slate-900 dark:bg-slate-800 hover:bg-slate-800 text-white font-bold text-xs flex items-center space-x-1.5"
+            className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-sm flex items-center space-x-2 transition-colors"
           >
-            <Download className="w-3.5 h-3.5" />
-            <span>Unduh Cadangan</span>
+            <Download className="w-4 h-4" />
+            <span>Unduh Cadangan (Backup JSON)</span>
           </button>
-          <label className="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs flex items-center space-x-1.5 cursor-pointer">
-            <Upload className="w-3.5 h-3.5" />
-            <span>Pulihkan</span>
+
+          <label className="px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300 font-bold text-xs shadow-sm flex items-center space-x-2 cursor-pointer transition-colors">
+            <Upload className="w-4 h-4" />
+            <span>Pulihkan Data (Restore JSON)</span>
             <input type="file" accept=".json" onChange={handleRestore} className="hidden" />
           </label>
         </div>
       </div>
 
-      {/* 5. Log Aktivitas Sistem (Audit Trail) */}
+      {/* 7. LOG AKTIVITAS AUDIT */}
       <div className="bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 space-y-4">
-        <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center space-x-2">
-          <History className="w-4 h-4 text-slate-400" />
-          <span>Log Riwayat Aktivitas QC (Audit Trail)</span>
+        <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center space-x-2">
+          <History className="w-5 h-5 text-slate-500" />
+          <span>Riwayat Log Aktivitas Sistem</span>
         </h3>
-        <div className="overflow-x-auto max-h-56">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead>
-              <tr className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 uppercase border-b font-semibold">
-                <th className="p-2.5">Waktu</th>
-                <th className="p-2.5">Aksi</th>
-                <th className="p-2.5">Keterangan</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
-              {logs.map((lg) => (
-                <tr key={lg.id || lg.timestamp}>
-                  <td className="p-2.5 whitespace-nowrap text-slate-500 font-mono text-[11px]">
-                    {new Date(lg.timestamp).toLocaleString('id-ID')}
-                  </td>
-                  <td className="p-2.5 whitespace-nowrap">
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
-                      {lg.aksi}
-                    </span>
-                  </td>
-                  <td className="p-2.5">{lg.keterangan}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+
+        <div className="max-h-60 overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+          {logs && logs.length > 0 ? (
+            logs.map((log) => (
+              <div key={log.id} className="py-2.5 flex items-center justify-between">
+                <div>
+                  <span className="font-bold text-slate-800 dark:text-slate-200 mr-2">
+                    [{log.aksi}]
+                  </span>
+                  <span className="text-slate-600 dark:text-slate-400">{log.keterangan}</span>
+                </div>
+                <span className="text-[11px] text-slate-400 font-mono">
+                  {new Date(log.timestamp).toLocaleTimeString('id-ID')}
+                </span>
+              </div>
+            ))
+          ) : (
+            <p className="text-slate-400 italic py-4">Belum ada riwayat aktivitas.</p>
+          )}
         </div>
       </div>
     </div>

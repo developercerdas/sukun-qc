@@ -12,6 +12,13 @@ import LaporanView from './components/LaporanView';
 import AuditView from './components/AuditView';
 import PengaturanView from './components/PengaturanView';
 import EditModal from './components/EditModal';
+import LoginView from './components/LoginView';
+import {
+  getStoredUser,
+  logoutUser,
+  canAccessTab,
+  ROLE_PERMISSIONS
+} from './services/authService';
 
 import {
   getProduksi,
@@ -36,6 +43,7 @@ export default function App() {
     return localStorage.getItem('sukun_qc_dark_mode') === 'true';
   });
   const [soundEnabled, setSoundEnabled] = useState(soundFx.enabled);
+  const [currentUser, setCurrentUser] = useState(() => getStoredUser());
 
   const [dataset, setDataset] = useState([]);
   const [references, setReferences] = useState({ namaTelak: [], lokal: [] });
@@ -69,6 +77,20 @@ export default function App() {
     setSoundEnabled(!soundEnabled);
     if (!soundEnabled) soundFx.playClick();
   };
+
+  const handleLogout = () => {
+    soundFx.playClick();
+    logoutUser();
+    setCurrentUser(null);
+    setActiveTab('dashboard');
+  };
+
+  // Pastikan tab yang aktif diizinkan untuk role saat ini
+  useEffect(() => {
+    if (currentUser && !canAccessTab(currentUser.role, activeTab)) {
+      setActiveTab('dashboard');
+    }
+  }, [currentUser, activeTab]);
 
   // Load Data awal
   const loadAllData = async () => {
@@ -168,6 +190,18 @@ export default function App() {
     await loadAllData();
   };
 
+  if (!currentUser) {
+    return (
+      <LoginView
+        onLoginSuccess={(user) => {
+          setCurrentUser(user);
+          setActiveTab('dashboard');
+          confetti({ particleCount: 70, spread: 60, origin: { y: 0.6 } });
+        }}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen flex bg-slate-100 dark:bg-slate-950 text-slate-800 dark:text-slate-100 font-sans antialiased">
       {/* Modern Floating Left Sidebar */}
@@ -182,6 +216,8 @@ export default function App() {
         toggleSound={toggleSound}
         liveRatio={liveRatio}
         totalGarapan={totalGarapan}
+        currentUser={currentUser}
+        onLogout={handleLogout}
       />
 
       {/* Main Screen Canvas */}
@@ -195,6 +231,8 @@ export default function App() {
           isSupabaseConnected={isSupabaseConnected}
           isRefreshing={isRefreshing}
           onRefresh={loadAllData}
+          currentUser={currentUser}
+          onLogout={handleLogout}
         />
 
         {/* Dynamic Views Canvas */}
@@ -225,6 +263,8 @@ export default function App() {
               dataset={dataset}
               onDeleteData={handleDeleteData}
               onEditData={handleEditData}
+              canEdit={ROLE_PERMISSIONS[currentUser?.role]?.canEdit}
+              canDelete={ROLE_PERMISSIONS[currentUser?.role]?.canDelete}
             />
           )}
 

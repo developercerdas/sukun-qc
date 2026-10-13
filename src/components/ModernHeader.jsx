@@ -6,7 +6,8 @@ import {
   Sun,
   Volume2,
   VolumeX,
-  Clock
+  Clock,
+  LogOut
 } from 'lucide-react';
 import { soundFx } from '../utils/soundHelper';
 import { useLiveWIB } from '../utils/dateHelper';
@@ -30,7 +31,9 @@ export default function ModernHeader({
   setDarkMode,
   isSupabaseConnected,
   isRefreshing,
-  onRefresh
+  onRefresh,
+  currentUser,
+  onLogout
 }) {
   const [soundEnabled, setSoundEnabled] = useState(soundFx.enabled);
   const liveWIB = useLiveWIB();
@@ -123,6 +126,27 @@ export default function ModernHeader({
         >
           {darkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4" />}
         </button>
+
+        {/* User Role Pill & Logout */}
+        {currentUser && (
+          <div className="flex items-center space-x-2 pl-2 border-l border-slate-200 dark:border-slate-800">
+            <div className="hidden sm:flex flex-col text-right">
+              <span className="font-bold text-slate-800 dark:text-slate-100 text-[11px] leading-tight">
+                {currentUser.name}
+              </span>
+              <span className="text-[9px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">
+                {currentUser.roleLabel}
+              </span>
+            </div>
+            <button
+              onClick={onLogout}
+              title={`Keluar (${currentUser.name})`}
+              className="p-2 rounded-xl text-slate-500 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 border border-slate-200 dark:border-slate-700 transition-colors"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          </div>
+        )}
       </div>
     </header>
   );

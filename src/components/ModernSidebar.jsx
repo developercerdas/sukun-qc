@@ -15,9 +15,11 @@ import {
   X,
   Volume2,
   VolumeX,
-  Zap
+  Zap,
+  LogOut
 } from 'lucide-react';
 import { soundFx } from '../utils/soundHelper';
+import { canAccessTab } from '../services/authService';
 
 const NAV_GROUPS = [
   {
@@ -56,7 +58,9 @@ export default function ModernSidebar({
   soundEnabled,
   toggleSound,
   liveRatio,
-  totalGarapan
+  totalGarapan,
+  currentUser,
+  onLogout
 }) {
   const handleNavClick = (tabId) => {
     soundFx.playClick();
@@ -68,6 +72,13 @@ export default function ModernSidebar({
 
   const ratioNum = Number(liveRatio || 0);
   const isAqlPass = ratioNum <= 0.8;
+
+  // Filter menu berdasarkan hak akses role akun
+  const userRole = currentUser?.role || 'admin';
+  const visibleGroups = NAV_GROUPS.map((grp) => ({
+    ...grp,
+    items: grp.items.filter((item) => canAccessTab(userRole, item.id))
+  })).filter((grp) => grp.items.length > 0);
 
   return (
     <>
@@ -123,9 +134,45 @@ export default function ModernSidebar({
             </button>
           </div>
 
+          {/* User Profile Card */}
+          {(!collapsed || mobileOpen) ? (
+            <div className="mx-3 mt-3 p-3 rounded-2xl bg-slate-800/60 border border-slate-700/60 flex items-center justify-between">
+              <div className="flex items-center space-x-2.5 min-w-0">
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 text-slate-950 font-black text-xs flex items-center justify-center shrink-0 shadow-sm">
+                  {currentUser?.avatar || 'QC'}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs font-bold text-white truncate">
+                    {currentUser?.name || 'Administrator'}
+                  </div>
+                  <span className={`inline-block px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider border ${currentUser?.badgeColor || 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'}`}>
+                    {currentUser?.roleLabel || 'Admin'}
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={onLogout}
+                title="Keluar dari Sistem (Logout)"
+                className="p-1.5 rounded-xl text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-colors shrink-0"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <div className="my-2 flex justify-center">
+              <button
+                onClick={onLogout}
+                title={`Keluar (${currentUser?.name || 'User'})`}
+                className="w-10 h-10 rounded-2xl bg-slate-800 hover:bg-red-500/20 hover:text-red-400 text-slate-300 flex items-center justify-center transition-colors"
+              >
+                <LogOut className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
           {/* 2. Grouped Navigation Items */}
           <nav className="flex-1 overflow-y-auto px-3 py-3 space-y-4 scrollbar-thin scrollbar-thumb-slate-800">
-            {NAV_GROUPS.map((grp) => (
+            {visibleGroups.map((grp) => (
               <div key={grp.category} className="space-y-1">
                 {(!collapsed || mobileOpen) && (
                   <div className="px-3 py-1 text-[9px] font-black tracking-widest text-slate-500 uppercase">
