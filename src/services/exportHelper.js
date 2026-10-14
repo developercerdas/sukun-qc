@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx';
 import { BULAN_LIST, KERUSAKAN_KEYS } from '../constants';
+import { getHariFromDateString } from '../utils/dateHelper';
 
 export function exportToExcel(data, filename = 'Sukun_QC_Data_Produksi.xlsx') {
   if (!data || data.length === 0) {
@@ -130,184 +131,157 @@ export function downloadExcelTemplate() {
   XLSX.writeFile(workbook, 'Template_Input_QC_PT_Sukun.xlsx');
 }
 
+// Kamus Nama Bulan Indonesia untuk Parsing Format Teks Tanggal
+const MONTH_MAP = {
+  jan: '01', januari: '01',
+  feb: '02', februari: '02',
+  mar: '03', maret: '03',
+  apr: '04', april: '04',
+  mei: '05', may: '05',
+  jun: '06', juni: '06', june: '06',
+  jul: '07', juli: '07', july: '07',
+  agu: '08', ags: '08', agus: '08', agustus: '08', aug: '08', august: '08',
+  sep: '09', sept: '09', september: '09',
+  okt: '10', oct: '10', oktober: '10', october: '10',
+  nov: '11', nop: '11', november: '11',
+  des: '12', dec: '12', desember: '12', december: '12'
+};
+
+// Pemetaan Alias Header Kolom Lengkap Industri Pabrik Rokok
+const HEADER_ALIASES = {
+  TANGGAL: [
+    'TANGGAL', 'TGL', 'DATE', 'TGL_PRODUKSI', 'TANGGAL_PRODUKSI',
+    'WAKTU', 'HARI_TANGGAL', 'TGL_GILING', 'TANGGAL_GILING', 'TANGGAL_KERJA', 'TGL_KERJA'
+  ],
+  NAMA: [
+    'NAMA_TELAK', 'NAMA', 'OPERATOR', 'TELAK', 'PEKERJA', 'KARYAWAN',
+    'NAMA_KARYAWAN', 'NAMA_OPERATOR', 'NAMA_GILING', 'PENGEPAK', 'NAMA_PENGEPAK', 'NAMA_LENGKAP'
+  ],
+  LOKAL: [
+    'LOKAL', 'LOKASI', 'BAGIAN', 'LINE', 'MEJA', 'POS', 'UNIT', 'GROUP',
+    'GRUP', 'REGU', 'LOKAL_GILING', 'RUANGAN'
+  ],
+  ABSENSI: [
+    'ABSENSI_GILING', 'ABSENSI', 'STATUS', 'KEHADIRAN', 'ABSEN',
+    'KETERANGAN', 'KET', 'PRESENSI', 'ABS'
+  ],
+  GARAPAN: [
+    'GARAPAN', 'JUMLAH_GARAPAN', 'TOTAL_GARAPAN', 'JML_GARAPAN', 'HASIL',
+    'HASIL_GILING', 'QTY', 'TOTAL', 'OUTPUT', 'PRODUKSI', 'BATANG',
+    'JML', 'JUMLAH', 'TARGET', 'REALISASI', 'TOTAL_HASIL', 'JML_BATANG'
+  ],
+  CW: ['CW', 'COWONG', 'DEFECT_CW', 'KERUSAKAN_CW'],
+  PK: ['PK', 'PAPIR_KUSUT', 'KUSUT', 'DEFECT_PK', 'KERUSAKAN_PK'],
+  LK: ['LK', 'LEM_KURANG', 'LEM', 'DEFECT_LK', 'KERUSAKAN_LK'],
+  TK: ['TK', 'TALIPAN_KOTOR', 'TALIPAN', 'DEFECT_TK', 'KERUSAKAN_TK'],
+  MT: ['MT', 'MUNTIR', 'DEFECT_MT', 'KERUSAKAN_MT'],
+  MD: ['MD', 'MEDOT', 'DEFECT_MD', 'KERUSAKAN_MD'],
+  AT: ['AT', 'ATOS', 'KERAS', 'DEFECT_AT', 'KERUSAKAN_AT'],
+  MM: ['MM', 'MEKAR_MINGKUP', 'MEKAR', 'DEFECT_MM', 'KERUSAKAN_MM'],
+  KERUSAKAN_TELAK: [
+    'KERUSAKAN_TELAK', 'TELAK', 'TOTAL_TELAK', 'TOTAL_KERUSAKAN_TELAK',
+    'JML_TELAK', 'TOTAL_KERUSAKAN', 'DEFECT_TELAK', 'TOTAL_DEFECT', 'TOTAL_RUSAK'
+  ],
+  KERUSAKAN_MANDOR: ['KERUSAKAN_MANDOR', 'MANDOR', 'TOTAL_MANDOR', 'DEFECT_MANDOR', 'RUSAK_MANDOR'],
+  KEKURANGAN_PAPIR: ['KEKURANGAN_PAPIR', 'PAPIR', 'KURANG_PAPIR', 'KEK_PAPIR', 'DEFECT_PAPIR'],
+  HARI: ['HARI', 'DAY'],
+  JAM_WIB: ['JAM_WIB', 'JAM', 'WAKTU', 'TIME']
+};
+
 // Normalisasi header Excel
 function normKey(k) {
   return String(k || '')
     .trim()
     .toUpperCase()
-    .replace(/\s+/g, '_');
+    .replace(/[\s\.\-_/]+/g, '_')
+    .replace(/^_+|_+$/g, '');
 }
 
-// Parsing tanggal Excel (mendukung Date object, ISO string, format DD/MM/YYYY, dan Excel serial date number)
-function parseExcelDate(val) {
-  if (!val) return '';
-  if (val instanceof Date && !isNaN(val.getTime())) {
-    const pad = n => (n < 10 ? '0' : '') + n;
-    return `${val.getFullYear()}-${pad(val.getMonth() + 1)}-${pad(val.getDate())}`;
+// Mencari canonical key dari alias
+function findCanonicalKey(rawKey) {
+  const norm = normKey(rawKey);
+  for (const [canonical, aliases] of Object.entries(HEADER_ALIASES)) {
+    if (aliases.includes(norm)) return canonical;
   }
-
-  // Jika angka serial Excel (misal 45579)
-  if (typeof val === 'number') {
-    const dateObj = new Date(Math.round((val - 25569) * 86400 * 1000));
-    if (!isNaN(dateObj.getTime())) {
-      const pad = n => (n < 10 ? '0' : '') + n;
-      return `${dateObj.getFullYear()}-${pad(dateObj.getMonth() + 1)}-${pad(dateObj.getDate())}`;
+  for (const [canonical, aliases] of Object.entries(HEADER_ALIASES)) {
+    for (const a of aliases) {
+      if (norm === a || norm.startsWith(a + '_') || norm.endsWith('_' + a)) {
+        return canonical;
+      }
     }
   }
+  return norm;
+}
 
+// Parsing tanggal Excel ke YYYY-MM-DD
+export function parseExcelDate(val) {
+  if (!val) return '';
+  if (val instanceof Date && !isNaN(val.getTime())) {
+    const y = val.getUTCFullYear();
+    const m = String(val.getUTCMonth() + 1).padStart(2, '0');
+    const d = String(val.getUTCDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+  if (typeof val === 'number') {
+    const utcDays = Math.floor(val - 25569);
+    const date = new Date(utcDays * 86400 * 1000);
+    const y = date.getUTCFullYear();
+    const m = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const d = String(date.getUTCDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
   const str = String(val).trim();
-
-  // Match YYYY-MM-DD
   const mIso = str.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
-  if (mIso) {
-    const pad = n => String(n).padStart(2, '0');
-    return `${mIso[1]}-${pad(mIso[2])}-${pad(mIso[3])}`;
-  }
-
-  // Match DD-MM-YYYY atau DD/MM/YYYY
-  const mDmY = str.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+  if (mIso) return `${mIso[1]}-${String(mIso[2]).padStart(2, '0')}-${String(mIso[3]).padStart(2, '0')}`;
+  
+  const mDmY = str.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})/);
   if (mDmY) {
-    const pad = n => String(n).padStart(2, '0');
-    return `${mDmY[3]}-${pad(mDmY[2])}-${pad(mDmY[1])}`;
+    let yr = mDmY[3];
+    if (yr.length === 2) yr = '20' + yr;
+    return `${yr}-${String(mDmY[2]).padStart(2, '0')}-${String(mDmY[1]).padStart(2, '0')}`;
   }
 
+  const mText = str.match(/^(\d{1,2})[\s\-_/]+([a-zA-Z]+)[\s\-_/]+(\d{2,4})/);
+  if (mText) {
+    let yr = mText[3];
+    if (yr.length === 2) yr = '20' + yr;
+    const monthKey = mText[2].toLowerCase();
+    const m = MONTH_MAP[monthKey];
+    if (m) {
+      return `${yr}-${m}-${String(mText[1]).padStart(2, '0')}`;
+    }
+  }
   return str;
 }
 
-// Parser & Validator Excel
-export function parseAndValidateExcel(file) {
+// Format Absensi agar angka desimal Excel terkonversi dengan rapi
+export function formatAbsensi(val) {
+  if (val === undefined || val === null || val === '') return 'Hadir';
+  if (typeof val === 'number') {
+    if (val >= 0 && val <= 1) {
+      if (val === 1) return 'Hadir';
+      return `${Math.round(val * 100)}%`;
+    }
+    return String(val);
+  }
+  const s = String(val).trim();
+  const num = parseFloat(s);
+  if (!isNaN(num) && num >= 0 && num <= 1 && s.includes('.')) {
+    if (num === 1) return 'Hadir';
+    return `${Math.round(num * 100)}%`;
+  }
+  return s || 'Hadir';
+}
+
+// Helper untuk membaca Workbook Excel dan mendeteksi semua Sheet
+export function readWorkbook(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
         const data = new Uint8Array(e.target.result);
         const workbook = XLSX.read(data, { type: 'array', cellDates: true });
-        const firstSheetName = workbook.SheetNames[0];
-        const worksheet = workbook.Sheets[firstSheetName];
-        const rawRows = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
-
-        if (!rawRows || rawRows.length === 0) {
-          throw new Error('File Excel kosong atau tidak memiliki data.');
-        }
-
-        const parsedRows = [];
-        const errors = [];
-
-        rawRows.forEach((row, index) => {
-          const rowNum = index + 2; // Baris di Excel (header di baris 1)
-
-          // Petakan keys dengan normalisasi
-          const mapped = {};
-          Object.keys(row).forEach(k => {
-            mapped[normKey(k)] = row[k];
-          });
-
-          // Ambil Tanggal
-          const rawDate = mapped['TANGGAL'] || mapped['TGL'] || mapped['DATE'] || '';
-          const tanggal = parseExcelDate(rawDate);
-
-          // Ambil Nama Telak
-          const nama = String(
-            mapped['NAMA_TELAK'] || mapped['NAMA'] || mapped['OPERATOR'] || mapped['TELAK'] || ''
-          ).trim();
-
-          // Ambil Lokal
-          const lokal = String(
-            mapped['LOKAL'] || mapped['LOKASI'] || mapped['BAGIAN'] || ''
-          ).trim();
-
-          // Absensi
-          const absensi = String(
-            mapped['ABSENSI_GILING'] || mapped['ABSENSI'] || mapped['STATUS'] || 'Hadir'
-          ).trim() || 'Hadir';
-
-          // Garapan
-          const garapan = Number(mapped['GARAPAN'] || mapped['JUMLAH_GARAPAN'] || mapped['TOTAL_GARAPAN'] || 0);
-
-          // 8 Kerusakan
-          const num = v => {
-            const n = parseFloat(v);
-            return isNaN(n) ? 0 : n;
-          };
-
-          const cw = num(mapped['CW'] || mapped['COWONG'] || 0);
-          const pk = num(mapped['PK'] || mapped['PAPIR_KUSUT'] || 0);
-          const lk = num(mapped['LK'] || mapped['LEM_KURANG'] || 0);
-          const tk = num(mapped['TK'] || mapped['TALIPAN_KOTOR'] || 0);
-          const mt = num(mapped['MT'] || mapped['MUNTIR'] || 0);
-          const md = num(mapped['MD'] || mapped['MEDOT'] || 0);
-          const at = num(mapped['AT'] || mapped['ATOS'] || 0);
-          const mm = num(mapped['MM'] || mapped['MEKAR_MINGKUP'] || 0);
-
-          // Kerusakan Telak: jika ada di kolom atau hitung dari sum 8 kerusakan
-          const sum8 = cw + pk + lk + tk + mt + md + at + mm;
-          const kTelak = mapped['KERUSAKAN_TELAK'] !== undefined && mapped['KERUSAKAN_TELAK'] !== ''
-            ? num(mapped['KERUSAKAN_TELAK'])
-            : sum8;
-
-          const kMandor = num(mapped['KERUSAKAN_MANDOR'] || mapped['MANDOR'] || 0);
-          const kPapir = num(mapped['KEKURANGAN_PAPIR'] || mapped['PAPIR'] || 0);
-
-          // Validasi kelayakan baris
-          const rowErrors = [];
-          if (!tanggal) rowErrors.push('Tanggal kosong');
-          if (!nama) rowErrors.push('Nama Telak kosong');
-          if (!lokal) rowErrors.push('Lokal kosong');
-          if (garapan <= 0) rowErrors.push('Garapan 0 / kosong');
-
-          // Date attributes
-          let year = new Date().getFullYear();
-          let monthNum = new Date().getMonth() + 1;
-          let monthName = BULAN_LIST[monthNum - 1];
-
-          if (tanggal) {
-            const parts = tanggal.split('-');
-            if (parts.length >= 2) {
-              year = parseInt(parts[0], 10) || year;
-              monthNum = parseInt(parts[1], 10) || monthNum;
-              monthName = BULAN_LIST[monthNum - 1] || '';
-            }
-          }
-
-          const parsedObj = {
-            rowNum,
-            YEAR: year,
-            MONTH: monthName,
-            MONTH_NUMBER: monthNum,
-            TANGGAL: tanggal,
-            NAMA: nama,
-            LOKAL: lokal,
-            ABSENSI: absensi,
-            GARAPAN: garapan,
-            CW: cw,
-            PK: pk,
-            LK: lk,
-            TK: tk,
-            MT: mt,
-            MD: md,
-            AT: at,
-            MM: mm,
-            KERUSAKAN_TELAK: kTelak,
-            KERUSAKAN_MANDOR: kMandor,
-            KEKURANGAN_PAPIR: kPapir,
-            isValid: rowErrors.length === 0,
-            errorMessage: rowErrors.join(', ')
-          };
-
-          parsedRows.push(parsedObj);
-          if (rowErrors.length > 0) {
-            errors.push({ rowNum, message: rowErrors.join(', ') });
-          }
-        });
-
-        resolve({
-          sheetName: firstSheetName,
-          totalRows: parsedRows.length,
-          validCount: parsedRows.filter(r => r.isValid).length,
-          invalidCount: parsedRows.filter(r => !r.isValid).length,
-          rows: parsedRows,
-          errors
-        });
+        resolve(workbook);
       } catch (err) {
         reject(err);
       }
@@ -315,4 +289,199 @@ export function parseAndValidateExcel(file) {
     reader.onerror = reject;
     reader.readAsArrayBuffer(file);
   });
+}
+
+// Parser & Validator Excel Super Cerdas
+export async function parseAndValidateExcel(fileOrWorkbook, options = {}) {
+  let workbook;
+  if (fileOrWorkbook && fileOrWorkbook.SheetNames) {
+    workbook = fileOrWorkbook;
+  } else {
+    workbook = await readWorkbook(fileOrWorkbook);
+  }
+
+  const sheetNames = workbook.SheetNames || [];
+  if (sheetNames.length === 0) {
+    throw new Error('File Excel tidak memiliki lembar kerja (sheet).');
+  }
+
+  const { sheetName = null, combineAllSheets = false } = options;
+  const sheetsToProcess = combineAllSheets
+    ? sheetNames
+    : [sheetName && sheetNames.includes(sheetName) ? sheetName : sheetNames[0]];
+
+  const parsedRows = [];
+  const errors = [];
+  let ignoredFooterCount = 0;
+
+  for (const sName of sheetsToProcess) {
+    const worksheet = workbook.Sheets[sName];
+    if (!worksheet) continue;
+
+    const rawRows = XLSX.utils.sheet_to_json(worksheet, { defval: '', blankrows: false });
+    if (!rawRows || rawRows.length === 0) continue;
+
+    let lastKnownTanggal = '';
+    let lastKnownLokal = '';
+
+    rawRows.forEach((row, index) => {
+      const rowNum = index + 2;
+
+      // Petakan keys dengan canonical matcher
+      const mapped = {};
+      Object.keys(row).forEach((k) => {
+        const canonical = findCanonicalKey(k);
+        mapped[canonical] = row[k];
+      });
+
+      const rawNama = String(mapped['NAMA'] || '').trim();
+
+      // Abaikan baris kosong total
+      const hasAnyValue = Object.values(row).some(
+        (v) => v !== '' && v !== null && v !== undefined
+      );
+      if (!hasAnyValue) return;
+
+      // Abaikan baris footer / summary (seperti TOTAL, JUMLAH, RATA-RATA, dsb)
+      if (
+        /^(TOTAL|JUMLAH|SUBTOTAL|RATA[\s\-_]*RATA|GRAND[\s\-_]*TOTAL|SUMMARY|KESELURUHAN|STATISTIK)/i.test(
+          rawNama
+        )
+      ) {
+        ignoredFooterCount++;
+        return;
+      }
+
+      // Ambil Tanggal (dukung carry forward untuk merged cells)
+      const rawDate = mapped['TANGGAL'] || '';
+      let tanggal = parseExcelDate(rawDate);
+      if (tanggal) {
+        lastKnownTanggal = tanggal;
+      } else if (lastKnownTanggal && rawNama) {
+        tanggal = lastKnownTanggal;
+      }
+
+      // Ambil Nama Telak
+      const nama = rawNama;
+
+      // Ambil Lokal (dukung carry forward untuk merged cells)
+      let lokal = String(mapped['LOKAL'] || '').trim();
+      if (lokal) {
+        lastKnownLokal = lokal;
+      } else if (lastKnownLokal) {
+        lokal = lastKnownLokal;
+      } else {
+        lokal = 'Lokal 1';
+      }
+
+      // Absensi
+      const absensi = formatAbsensi(mapped['ABSENSI']);
+
+      // Angka helper
+      const num = (v) => {
+        if (typeof v === 'number') return isNaN(v) ? 0 : v;
+        const n = parseFloat(String(v || '').replace(/,/g, ''));
+        return isNaN(n) ? 0 : n;
+      };
+
+      // Garapan (fleksibel: >= 0)
+      const garapan = num(mapped['GARAPAN']);
+
+      // 8 Jenis Kerusakan
+      const cw = num(mapped['CW']);
+      const pk = num(mapped['PK']);
+      const lk = num(mapped['LK']);
+      const tk = num(mapped['TK']);
+      const mt = num(mapped['MT']);
+      const md = num(mapped['MD']);
+      const at = num(mapped['AT']);
+      const mm = num(mapped['MM']);
+
+      // Kerusakan Telak
+      const sum8 = cw + pk + lk + tk + mt + md + at + mm;
+      let kTelak = mapped['KERUSAKAN_TELAK'] !== undefined && mapped['KERUSAKAN_TELAK'] !== ''
+        ? num(mapped['KERUSAKAN_TELAK'])
+        : sum8;
+      if (sum8 > 0 && kTelak === 0) {
+        kTelak = sum8;
+      }
+
+      const kMandor = num(mapped['KERUSAKAN_MANDOR']);
+      const kPapir = num(mapped['KEKURANGAN_PAPIR']);
+
+      // Validasi baris
+      const rowErrors = [];
+      if (!nama) rowErrors.push('Nama Telak kosong');
+      if (!tanggal) rowErrors.push('Tanggal tidak ditemukan');
+      if (garapan < 0) rowErrors.push('Garapan tidak boleh negatif');
+
+      // Waktu & Hari
+      let year = new Date().getFullYear();
+      let monthNum = new Date().getMonth() + 1;
+      let monthName = BULAN_LIST[monthNum - 1];
+
+      if (tanggal) {
+        const parts = tanggal.split('-');
+        if (parts.length >= 2) {
+          year = parseInt(parts[0], 10) || year;
+          monthNum = parseInt(parts[1], 10) || monthNum;
+          monthName = BULAN_LIST[monthNum - 1] || '';
+        }
+      }
+
+      const hari = mapped['HARI'] || getHariFromDateString(tanggal) || '';
+      const jam = mapped['JAM_WIB'] || '07:00 WIB';
+
+      const isValid = rowErrors.length === 0;
+
+      const parsedObj = {
+        sheetName: sName,
+        rowNum,
+        YEAR: year,
+        MONTH: monthName,
+        MONTH_NUMBER: monthNum,
+        TANGGAL: tanggal,
+        HARI: hari,
+        JAM_WIB: jam,
+        NAMA: nama,
+        LOKAL: lokal,
+        ABSENSI: absensi,
+        GARAPAN: garapan,
+        CW: cw,
+        PK: pk,
+        LK: lk,
+        TK: tk,
+        MT: mt,
+        MD: md,
+        AT: at,
+        MM: mm,
+        KERUSAKAN_TELAK: kTelak,
+        KERUSAKAN_MANDOR: kMandor,
+        KEKURANGAN_PAPIR: kPapir,
+        isValid,
+        errorMessage: rowErrors.join(', ')
+      };
+
+      parsedRows.push(parsedObj);
+      if (!isValid) {
+        errors.push({ sheetName: sName, rowNum, message: rowErrors.join(', ') });
+      }
+    });
+  }
+
+  const validCount = parsedRows.filter((r) => r.isValid).length;
+  const invalidCount = parsedRows.filter((r) => !r.isValid).length;
+
+  return {
+    sheetNames,
+    activeSheet: combineAllSheets ? 'Semua Sheet' : sheetsToProcess[0],
+    isMultiSheet: sheetNames.length > 1,
+    workbook,
+    totalRows: parsedRows.length,
+    validCount,
+    invalidCount,
+    ignoredFooterCount,
+    rows: parsedRows,
+    errors
+  };
 }

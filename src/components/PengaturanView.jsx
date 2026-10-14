@@ -24,7 +24,7 @@ import {
   saveSupabaseConfig,
   testSupabaseConnection
 } from '../services/supabaseClient';
-import { backupAll, restoreAll } from '../services/storage';
+import { backupAll, restoreAll, clearAllProduksi } from '../services/storage';
 import {
   getAllUsers,
   addUser,
@@ -219,6 +219,21 @@ CREATE POLICY "Public Full Access on log_aktivitas" ON log_aktivitas FOR ALL USI
       }
     };
     reader.readAsText(file);
+  };
+
+  const handleClearAllData = async () => {
+    const confirmed = window.confirm(
+      '⚠️ PERINGATAN PENTING:\n\nApakah Anda yakin ingin MENGHAPUS SEMUA DATA PRODUKSI di database?\n\nSemua riwayat data produksi akan dikosongkan. Data akun pengguna dan master referensi tetap aman.\n\nLanjutkan?'
+    );
+    if (!confirmed) return;
+    try {
+      await clearAllProduksi();
+      soundFx.playSuccess();
+      alert('Seluruh data produksi berhasil dikosongkan dari database.');
+      await onRefreshData();
+    } catch (e) {
+      alert('Gagal mengosongkan data: ' + e.message);
+    }
   };
 
   const handleAddNama = (e) => {
@@ -673,7 +688,26 @@ CREATE POLICY "Public Full Access on log_aktivitas" ON log_aktivitas FOR ALL USI
         </div>
       </div>
 
-      {/* 7. LOG AKTIVITAS AUDIT */}
+      {/* 7. RESET / KOSONGKAN DATA PRODUKSI (ZONA PENGUJIAN) */}
+      <div className="bg-red-50/50 dark:bg-red-950/20 p-6 sm:p-8 rounded-2xl border border-red-200 dark:border-red-900/40 space-y-3">
+        <h3 className="text-base font-bold text-red-900 dark:text-red-200 flex items-center space-x-2">
+          <Trash2 className="w-5 h-5 text-red-600" />
+          <span>Reset / Kosongkan Data Produksi</span>
+        </h3>
+        <p className="text-xs text-red-700 dark:text-red-400">
+          Gunakan fungsi ini jika Anda ingin menghapus seluruh data produksi hasil trial / pengujian agar database bersih kembali sebelum mengimpor data riil yang sebenarnya. Akun pengguna dan master referensi tetap aman.
+        </p>
+        <button
+          type="button"
+          onClick={handleClearAllData}
+          className="px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white font-bold text-xs shadow-sm flex items-center space-x-2 transition-colors"
+        >
+          <Trash2 className="w-4 h-4" />
+          <span>Kosongkan Seluruh Data Produksi Sekarang</span>
+        </button>
+      </div>
+
+      {/* 8. LOG AKTIVITAS AUDIT */}
       <div className="bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-2xl shadow-sm border border-slate-200 dark:border-slate-800 space-y-4">
         <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center space-x-2">
           <History className="w-5 h-5 text-slate-500" />

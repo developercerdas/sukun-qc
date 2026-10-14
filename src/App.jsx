@@ -23,6 +23,8 @@ import {
 import {
   getProduksi,
   addProduksi,
+  batchAddProduksi,
+  clearAllProduksi,
   updateProduksi,
   deleteProduksi,
   getReferences,
@@ -147,14 +149,16 @@ export default function App() {
     await loadAllData();
   };
 
-  const handleBatchImport = async (rows) => {
-    for (const r of rows) {
-      await addProduksi(r);
+  const handleBatchImport = async (rows, options = {}) => {
+    const { onProgress, cleanReplace } = options;
+    if (cleanReplace) {
+      await clearAllProduksi();
     }
-    await logActivity('IMPORT_EXCEL', `Mengimpor ${rows.length} data produksi dari file Excel`);
+    const result = await batchAddProduksi(rows, onProgress);
     soundFx.playSuccess();
     confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
     await loadAllData();
+    return result;
   };
 
   const handleEditData = (record) => {

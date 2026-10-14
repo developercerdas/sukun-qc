@@ -1,5 +1,6 @@
 import { BULAN_LIST, INITIAL_REFERENCES, INITIAL_SAMPLE_DATA } from '../constants';
 import { getSupabaseClient } from './supabaseClient';
+import { getHariFromDateString } from '../utils/dateHelper';
 
 const LOCAL_STORAGE_KEY = 'sukun_qc_dataset_v1';
 const REFS_STORAGE_KEY = 'sukun_qc_references_v1';
@@ -176,9 +177,13 @@ export async function getProduksi() {
         .from('produksi')
         .select('*')
         .order('TANGGAL', { ascending: false })
-        .order('id', { ascending: false });
+        .order('id', { ascending: false })
+        .limit(50000);
 
       if (!error && data) {
+        try {
+          localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(data));
+        } catch (_) {}
         return data;
       }
       console.warn('Supabase fetch error, fallback ke local:', error?.message);
@@ -351,6 +356,187 @@ export async function deleteProduksi(id) {
   localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(filtered));
   await logActivity('HAPUS', `Menghapus data ID: ${id} (Lokal)`);
   return { success: true };
+}
+
+// ==========================================
+// BATCH BULK INSERT BERKECEPATAN TINGGI
+// ==========================================
+export async function batchAddProduksi(rows, onProgress = () => {}) {
+  if (!rows || rows.length === 0) {
+    return { success: true, total: 0, inserted: 0, failed: 0, failedRows: [] };
+  }
+
+  const num = v => {
+    const n = parseFloat(v);
+    return isNaN(n) ? 0 : n;
+  };
+
+  const formattedRecords = rows.map((r) => {
+    const tglStr = String(r.TANGGAL || '').trim();
+    let year = new Date().getFullYear();
+    let monthNum = new Date().getMonth() + 1;
+    let monthName = BULAN_LIST[monthNum - 1] || '';
+
+    if (tglStr && tglStr.includes('-')) {
+      const parts = tglStr.split('-');
+      if (parts.length >= 2) {
+        year = parseInt(parts[0], 10) || year;
+        monthNum = parseInt(parts[1], 10) || monthNum;
+        monthName = BULAN_LIST[monthNum - 1] || '';
+      }
+    }
+
+    const hari = r.HARI || getHariFromDateString(tglStr) || '';
+    const jam = r.JAM_WIB || r.JAM || '07:00 WIB';
+
+    return {
+      YEAR: year,
+      MONTH: monthName,
+      MONTH_NUMBER: monthNum,
+      TANGGAL: tglStr,
+      HARI: hari,
+      JAM_WIB: jam,
+      NAMA: String(r.NAMA || '').trim(),
+      LOKAL: String(r.LOKAL || '').trim() || 'Lokal 1',
+      ABSENSI: String(r.ABSENSI || 'Hadir').trim(),
+      GARAPAN: num(r.GARAPAN),
+      CW: num(r.CW),
+      PK: num(r.PK),
+      LK: num(r.LK),
+      TK: num(r.TK),
+      MT: num(r.MT),
+      MD: num(r.MD),
+      AT: num(r.AT),
+      MM: num(r.MM),
+      KERUSAKAN_TELAK: num(r.KERUSAKAN_TELAK),
+      KERUSAKAN_MANDOR: num(r.KERUSAKAN_MANDOR),
+      KEKURANGAN_PAPIR: num(r.KEKURANGAN_PAPIR),
+      created_at: new Date().toISOString()
+    };
+  }).filter(r => r.NAMA && r.TANGGAL);
+
+  const client = getSupabaseClient();
+
+  // 1. Bulk Upsert Referensi (Nama Telak & Lokal) secara efisien dalam 1 query
+  try {
+    const uniqueNama = [...new Set(formattedRecords.map(r => r.NAMA).filter(Boolean))];
+    const uniqueLokal = [...new Set(formattedRecords.map(r => r.LOKAL).filter(Boolean))];
+
+    const currentRefs = await getReferences();
+    const existingNama = new Set(currentRefs.namaTelak || []);
+    const existingLokal = new Set(currentRefs.lokal || []);
+
+    const newRefsToInsert = [];
+    uniqueNama.forEach(nama => {
+      if (!existingNama.has(nama)) {
+        newRefsToInsert.push({ kategori: 'NAMA_TELAK', nilai: nama });
+        existingNama.add(nama);
+      }
+    });
+    uniqueLokal.forEach(lokal => {
+      if (!existingLokal.has(lokal)) {
+        newRefsToInsert.push({ kategori: 'LOKAL', nilai: lokal });
+        existingLokal.add(lokal);
+      }
+    });
+
+    if (newRefsToInsert.length > 0 && client) {
+      await client.from('referensi').insert(newRefsToInsert);
+    }
+
+    // Perbarui cache referensi lokal
+    localStorage.setItem(REFS_STORAGE_KEY, JSON.stringify({
+      namaTelak: Array.from(existingNama).sort(),
+      lokal: Array.from(existingLokal).sort()
+    }));
+  } catch (refErr) {
+    console.warn('Peringatan pendaftaran master referensi batch:', refErr);
+  }
+
+  // 2. Bulk Insert Records in Chunks (100 baris per request untuk kecepatan tinggi)
+  const CHUNK_SIZE = 100;
+  let insertedCount = 0;
+  const failedRows = [];
+  const insertedData = [];
+
+  for (let i = 0; i < formattedRecords.length; i += CHUNK_SIZE) {
+    const chunk = formattedRecords.slice(i, i + CHUNK_SIZE);
+    if (client) {
+      try {
+        const { data, error } = await client.from('produksi').insert(chunk).select();
+        if (error) throw error;
+        insertedCount += (data?.length || chunk.length);
+        if (data) insertedData.push(...data);
+      } catch (err) {
+        console.warn(`Chunk ${i} gagal secara batch, fallback simpan per baris:`, err);
+        for (const singleRow of chunk) {
+          try {
+            const { data: sData, error: sErr } = await client.from('produksi').insert([singleRow]).select();
+            if (sErr) throw sErr;
+            insertedCount++;
+            if (sData) insertedData.push(...sData);
+          } catch (rowErr) {
+            console.error('Baris gagal dimasukkan:', singleRow.NAMA, rowErr);
+            failedRows.push({ row: singleRow, error: rowErr.message });
+          }
+        }
+      }
+    } else {
+      // Local storage fallback jika offline
+      chunk.forEach((rec, idx) => {
+        rec.id = 'loc-' + Date.now() + '-' + (i + idx);
+        insertedData.push(rec);
+        insertedCount++;
+      });
+    }
+
+    if (typeof onProgress === 'function') {
+      const processed = Math.min(i + CHUNK_SIZE, formattedRecords.length);
+      onProgress({
+        current: processed,
+        total: formattedRecords.length,
+        percent: Math.round((processed / formattedRecords.length) * 100)
+      });
+    }
+  }
+
+  // Update local storage cache
+  try {
+    const localItems = await getProduksi();
+    const merged = [...insertedData, ...localItems];
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(merged));
+  } catch (_) {}
+
+  // Catat 1 aktivitas log tunggal
+  await logActivity(
+    'IMPORT_EXCEL',
+    `Berhasil mengimpor ${insertedCount} dari ${formattedRecords.length} data produksi dari file Excel`
+  );
+
+  return {
+    success: true,
+    total: formattedRecords.length,
+    inserted: insertedCount,
+    failed: failedRows.length,
+    failedRows
+  };
+}
+
+export async function clearAllProduksi() {
+  const client = getSupabaseClient();
+  if (client) {
+    try {
+      const { error } = await client.from('produksi').delete().gte('id', 0);
+      if (error) {
+        await client.from('produksi').delete().neq('id', 0);
+      }
+    } catch (e) {
+      console.warn('Gagal reset data di Supabase:', e);
+    }
+  }
+  localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify([]));
+  await logActivity('RESET', 'Mengosongkan semua data produksi');
+  return true;
 }
 
 // Audit data anomali / duplikat
