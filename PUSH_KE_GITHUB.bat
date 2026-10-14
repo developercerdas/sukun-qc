@@ -7,10 +7,12 @@ echo   MENGIRIM PEMBARUAN APLIKASI QC KE GITHUB (developercerdas/sukun-qc)
 echo ===================================================================
 echo.
 echo Sedang mengunggah fitur terbaru:
-echo   [+] Halaman Login Glassmorphism
-echo   [+] Master Rule Hak Akses (Super Admin, Mandor QC, Operator)
-echo   [+] Master Standar Baku Mutu QC PT. Sukun
-echo   [+] Manajemen Akun Pengguna & Kata Sandi
+echo   [+] Perbaikan Engine Bulk Import: Kecepatan Tinggi (Batch 100 baris/detik)
+echo   [+] Solusi Masalah Selisih Jumlah Data Import vs Data Aktual
+echo   [+] Dukungan Multi-Sheet Excel ^& Penggabungan Semua Lembar Kerja
+echo   [+] Toleransi Merged Cells ^& Auto-Fill Tanggal/Lokal Pabrik
+echo   [+] Opsi Mode: Tambahkan (Append) vs Ganti Bersih Database (Clean Replace)
+echo   [+] Tombol Reset / Kosongkan Data Produksi di Pengaturan
 echo.
 "C:\laragon\bin\git\cmd\git.exe" push origin main
 echo.
