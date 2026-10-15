@@ -33,7 +33,15 @@ function getTodayString() {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
-export default function InputView({ references = { namaTelak: [], lokal: [] }, dataset = [], onAddData, onBatchAdd }) {
+export default function InputView({
+  references = { namaTelak: [], lokal: [] },
+  dataset = [],
+  onAddData,
+  onBatchAdd,
+  currentUser
+}) {
+  const isMandor = !!(currentUser?.assignedLokal && currentUser.assignedLokal !== 'ALL');
+
   // Pilihan Mode Input Cepat
   // 'grid' (Tabel Cepat Spreadsheet), 'express' (Simpan & Lanjut), 'paste' (Smart Paste WA), 'classic' (Formulir Standar)
   const [activeInputMode, setActiveInputMode] = useState('grid');
@@ -42,10 +50,19 @@ export default function InputView({ references = { namaTelak: [], lokal: [] }, d
   const [commonDate, setCommonDate] = useState(() => getTodayString());
   const [commonHari, setCommonHari] = useState(() => getHariFromDateString(getTodayString()));
   const [commonJam, setCommonJam] = useState(() => getCurrentJamWIB());
-  const [commonLokal, setCommonLokal] = useState(() => references.lokal[0] || 'Lokal 1');
+  const [commonLokal, setCommonLokal] = useState(() =>
+    isMandor ? currentUser.assignedLokal : references.lokal[0] || 'Lokal 1'
+  );
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+
+  // Auto-update jika akun mandor berganti
+  useEffect(() => {
+    if (isMandor && currentUser?.assignedLokal) {
+      setCommonLokal(currentUser.assignedLokal);
+    }
+  }, [currentUser, isMandor]);
 
   // Update Hari saat Tanggal berubah
   const handleCommonDateChange = (newDate) => {
@@ -734,8 +751,25 @@ export default function InputView({ references = { namaTelak: [], lokal: [] }, d
 
           <div className="lg:col-span-2">
             <label className="block text-[11px] font-bold text-slate-600 dark:text-slate-400 mb-1 flex items-center justify-between">
-              <span>Sektor / Lokal Produksi Aktif</span>
-              <span className="text-[10px] text-slate-400">Terkunci otomatis ke semua baris input</span>
+              <span className="flex items-center space-x-1.5">
+                <span>Sektor / Lokal Produksi Aktif</span>
+                {isMandor && (
+                  <span className="px-1.5 py-0.5 rounded text-[9px] font-black bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                    Mandor: {currentUser.name}
+                  </span>
+                )}
+              </span>
+              {isMandor && commonLokal !== currentUser.assignedLokal ? (
+                <button
+                  type="button"
+                  onClick={() => setCommonLokal(currentUser.assignedLokal)}
+                  className="text-[10px] text-amber-500 hover:underline font-bold"
+                >
+                  Reset ke {currentUser.assignedLokal}
+                </button>
+              ) : (
+                <span className="text-[10px] text-slate-400">Terkunci otomatis ke semua baris input</span>
+              )}
             </label>
             <div className="flex space-x-2">
               <input

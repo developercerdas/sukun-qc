@@ -12,17 +12,24 @@ import {
   CheckCircle2,
   Clock
 } from 'lucide-react';
-import { DEFAULT_USERS, loginUser } from '../services/authService';
+import { getAllUsers, syncUsersWithSupabase, loginUser } from '../services/authService';
 import { soundFx } from '../utils/soundHelper';
 import { useLiveWIB } from '../utils/dateHelper';
 
 export default function LoginView({ onLoginSuccess }) {
-  const [username, setUsername] = useState('admin');
+  const [username, setUsername] = useState('mandor1');
   const [password, setPassword] = useState('sukun123');
   const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [usersList, setUsersList] = useState(() => getAllUsers());
   const liveWIB = useLiveWIB();
+
+  React.useEffect(() => {
+    syncUsersWithSupabase().then((latest) => {
+      if (latest && Array.isArray(latest)) setUsersList(latest);
+    });
+  }, []);
 
   const handleLoginSubmit = (e) => {
     if (e) e.preventDefault();
@@ -190,8 +197,8 @@ export default function LoginView({ onLoginSuccess }) {
               </span>
             </div>
 
-            <div className="grid grid-cols-3 gap-2">
-              {DEFAULT_USERS.map((usr) => {
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {usersList.slice(0, 6).map((usr) => {
                 const isSelected = username === usr.username;
                 return (
                   <button
@@ -200,21 +207,26 @@ export default function LoginView({ onLoginSuccess }) {
                     onClick={() => selectPresetUser(usr)}
                     className={`p-2.5 rounded-xl border text-left transition-all ${
                       isSelected
-                        ? 'bg-slate-800 border-emerald-500 shadow-sm shadow-emerald-500/20'
+                        ? 'bg-slate-800 border-amber-500 shadow-sm shadow-amber-500/20'
                         : 'bg-slate-800/50 border-slate-700/60 hover:bg-slate-800 hover:border-slate-600 text-slate-300'
                     }`}
                   >
                     <div className="flex items-center justify-between">
-                      <span className="text-[11px] font-black text-white">{usr.roleLabel}</span>
-                      {isSelected && <CheckCircle2 className="w-3 h-3 text-emerald-400" />}
+                      <span className="text-[11px] font-black text-white truncate max-w-[100px]">{usr.name}</span>
+                      {isSelected && <CheckCircle2 className="w-3 h-3 text-amber-400 shrink-0" />}
                     </div>
-                    <p className="text-[9px] text-slate-400 mt-0.5 font-mono">{usr.username}</p>
+                    <div className="flex items-center justify-between mt-1 text-[9px]">
+                      <span className="font-mono text-slate-400">{usr.username}</span>
+                      <span className="px-1.5 py-0.2 rounded bg-slate-700 font-bold text-amber-300">
+                        {usr.assignedLokal === 'ALL' ? 'Semua' : usr.assignedLokal}
+                      </span>
+                    </div>
                   </button>
                 );
               })}
             </div>
             <p className="text-[10px] text-slate-400 text-center mt-2.5">
-              Password default semua role: <span className="font-mono text-emerald-400 font-bold">sukun123</span>
+              Password default semua akun: <span className="font-mono text-emerald-400 font-bold">sukun123</span>
             </p>
           </div>
         </div>

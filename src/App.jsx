@@ -17,7 +17,8 @@ import {
   getStoredUser,
   logoutUser,
   canAccessTab,
-  ROLE_PERMISSIONS
+  ROLE_PERMISSIONS,
+  syncUsersWithSupabase
 } from './services/authService';
 
 import {
@@ -54,11 +55,20 @@ export default function App() {
   const [isSupabaseConnected, setIsSupabaseConnected] = useState(false);
 
   // Global Filter State untuk Dashboard & Views
-  const [filters, setFilters] = useState({
+  const [filters, setFilters] = useState(() => ({
     year: '',
     month: '',
-    lokal: ''
-  });
+    lokal: currentUser?.assignedLokal && currentUser.assignedLokal !== 'ALL' ? currentUser.assignedLokal : ''
+  }));
+
+  // Update filter saat user login berganti
+  useEffect(() => {
+    if (currentUser?.assignedLokal && currentUser.assignedLokal !== 'ALL') {
+      setFilters((prev) => ({ ...prev, lokal: currentUser.assignedLokal }));
+    } else {
+      setFilters((prev) => ({ ...prev, lokal: '' }));
+    }
+  }, [currentUser]);
 
   // Modal Edit
   const [editingRecord, setEditingRecord] = useState(null);
@@ -107,6 +117,11 @@ export default function App() {
         getLogs()
       ]);
 
+      // Sinkronkan akun pengguna dari cloud Supabase jika ada
+      try {
+        await syncUsersWithSupabase();
+      } catch (_) {}
+
       setDataset(dataRes || []);
       setReferences(refsRes || { namaTelak: [], lokal: [] });
       setLogs(logsRes || []);
@@ -132,15 +147,25 @@ export default function App() {
     return list.length ? list : references.lokal;
   }, [dataset, references.lokal]);
 
-  // Overall Live Stats untuk Sidebar Widget
+  // Overall Live Stats untuk Sidebar Widget (Sesuai wilayah mandor atau global pabrik)
+  const isMandorScoped = currentUser?.assignedLokal && currentUser.assignedLokal !== 'ALL';
+  const userScopedDataset = useMemo(() => {
+    if (isMandorScoped) {
+      return dataset.filter(
+        (d) => String(d.LOKAL).trim().toLowerCase() === String(currentUser.assignedLokal).trim().toLowerCase()
+      );
+    }
+    return dataset;
+  }, [dataset, isMandorScoped, currentUser]);
+
   const totalGarapan = useMemo(() => {
-    return dataset.reduce((s, d) => s + (Number(d.GARAPAN) || 0), 0);
-  }, [dataset]);
+    return userScopedDataset.reduce((s, d) => s + (Number(d.GARAPAN) || 0), 0);
+  }, [userScopedDataset]);
 
   const liveRatio = useMemo(() => {
-    const totalTelak = dataset.reduce((s, d) => s + (Number(d.KERUSAKAN_TELAK) || 0), 0);
+    const totalTelak = userScopedDataset.reduce((s, d) => s + (Number(d.KERUSAKAN_TELAK) || 0), 0);
     return totalGarapan > 0 ? ((totalTelak / totalGarapan) * 100).toFixed(2) : '0.00';
-  }, [dataset, totalGarapan]);
+  }, [userScopedDataset, totalGarapan]);
 
   // Handlers CRUD
   const handleAddData = async (formData) => {
@@ -248,6 +273,7 @@ export default function App() {
               setFilters={setFilters}
               years={years}
               lokalList={lokalList}
+              currentUser={currentUser}
             />
           )}
 
@@ -257,6 +283,7 @@ export default function App() {
               dataset={dataset}
               onAddData={handleAddData}
               onBatchAdd={handleBatchImport}
+              currentUser={currentUser}
             />
           )}
 
@@ -274,15 +301,22 @@ export default function App() {
               onEditData={handleEditData}
               canEdit={ROLE_PERMISSIONS[currentUser?.role]?.canEdit}
               canDelete={ROLE_PERMISSIONS[currentUser?.role]?.canDelete}
+              currentUser={currentUser}
             />
           )}
 
           {activeTab === 'anatomi' && <AnatomiRokokView dataset={dataset} />}
 
-          {activeTab === 'analisis' && <AnalisisView dataset={dataset} />}
+          {activeTab === 'analisis' && (
+            <AnalisisView dataset={dataset} currentUser={currentUser} />
+          )}
 
           {activeTab === 'laporan' && (
-            <LaporanView dataset={dataset} references={references} />
+            <LaporanView
+              dataset={dataset}
+              references={references}
+              currentUser={currentUser}
+            />
           )}
 
           {activeTab === 'audit' && (
@@ -300,6 +334,7 @@ export default function App() {
               onDeleteReference={handleDeleteReference}
               logs={logs}
               onRefreshData={loadAllData}
+              currentUser={currentUser}
             />
           )}
         </main>

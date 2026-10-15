@@ -37,20 +37,29 @@ export default function DashboardView({
   filters,
   setFilters,
   years,
-  lokalList
+  lokalList,
+  currentUser
 }) {
+  const isMandor = !!(currentUser?.assignedLokal && currentUser.assignedLokal !== 'ALL');
+  const [onlyMyLokal, setOnlyMyLokal] = useState(isMandor);
   const [quickDateFilter, setQuickDateFilter] = useState('all'); // 'today', '7d', 'all'
 
-  // Filtered dataset
+  // Filtered dataset (Personal Mandor Workspace aware)
   const filteredData = useMemo(() => {
     return dataset.filter((d) => {
+      // Isolasi data mandor jika aktif
+      if (onlyMyLokal && isMandor) {
+        if (String(d.LOKAL).trim().toLowerCase() !== String(currentUser.assignedLokal).trim().toLowerCase()) {
+          return false;
+        }
+      }
       // Standard filters
       if (filters.year && String(d.YEAR) !== String(filters.year)) return false;
       if (filters.month && String(d.MONTH_NUMBER) !== String(filters.month)) return false;
-      if (filters.lokal && String(d.LOKAL) !== String(filters.lokal)) return false;
+      if (!onlyMyLokal && filters.lokal && String(d.LOKAL) !== String(filters.lokal)) return false;
       return true;
     });
-  }, [dataset, filters]);
+  }, [dataset, filters, onlyMyLokal, isMandor, currentUser]);
 
   // KPIs
   const totalGarapan = useMemo(() => {
@@ -173,15 +182,33 @@ export default function DashboardView({
                 <ShieldCheck className="w-4 h-4 inline shrink-0" />
                 <span>{aqlGrade.grade}</span>
               </span>
-              <span className="text-xs font-bold text-slate-200 tracking-wide">
-                AQL Standar PT. SUKUN WARTONO INDONESIA
-              </span>
+              {isMandor ? (
+                <div className="flex items-center space-x-2">
+                  <span className="px-2.5 py-1 rounded-full text-xs font-black bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                    📍 Wilayah: {currentUser.assignedLokal}
+                  </span>
+                  <button
+                    onClick={() => setOnlyMyLokal(!onlyMyLokal)}
+                    className="px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition-colors"
+                  >
+                    {onlyMyLokal ? 'Bandingkan Seluruh Pabrik' : 'Kembali ke Wilayah Saya'}
+                  </button>
+                </div>
+              ) : (
+                <span className="text-xs font-bold text-slate-200 tracking-wide">
+                  AQL Standar PT. SUKUN WARTONO INDONESIA
+                </span>
+              )}
             </div>
             <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-              Pusat Kendali Mutu & Produksi Rokok
+              {isMandor && onlyMyLokal
+                ? `Pusat Kendali Mutu — ${currentUser.assignedLokal}`
+                : 'Pusat Kendali Mutu & Produksi Rokok'}
             </h2>
             <p className="text-xs text-slate-300 mt-1 max-w-xl leading-relaxed">
-              {aqlGrade.desc} Akumulasi dari seluruh sektor meja gilingan aktif.
+              {isMandor && onlyMyLokal
+                ? `Menampilkan indikator performa & rasio cacat meja gilingan khusus wilayah ${currentUser.assignedLokal} di bawah pengawasan ${currentUser.name}.`
+                : `${aqlGrade.desc} Akumulasi dari seluruh sektor meja gilingan aktif.`}
             </p>
           </div>
 

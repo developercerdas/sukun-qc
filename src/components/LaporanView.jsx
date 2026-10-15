@@ -12,10 +12,15 @@ function getTodayString() {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
-export default function LaporanView({ dataset, references }) {
+export default function LaporanView({ dataset, references, currentUser }) {
+  const isMandor = !!(currentUser?.assignedLokal && currentUser.assignedLokal !== 'ALL');
   const [filterDate, setFilterDate] = useState(getTodayString);
-  const [filterLokal, setFilterLokal] = useState('');
-  const [penanggungJawab, setPenanggungJawab] = useState('Mandor QC PT. SUKUN WARTONO INDONESIA');
+  const [filterLokal, setFilterLokal] = useState(() => (isMandor ? currentUser.assignedLokal : ''));
+  const [penanggungJawab, setPenanggungJawab] = useState(() =>
+    currentUser
+      ? `${currentUser.name} (${currentUser.assignedLokal !== 'ALL' ? `Mandor ${currentUser.assignedLokal}` : 'Pengawas Mutu PT. SUKUN'})`
+      : 'Mandor QC PT. SUKUN WARTONO INDONESIA'
+  );
   const [kepalaBagian, setKepalaBagian] = useState('Kepala Bagian Produksi');
 
   // Filter dataset untuk laporan yang dicetak

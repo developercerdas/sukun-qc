@@ -1,6 +1,7 @@
 // ===================================================================
 // LAYANAN AUTENTIKASI, MASTER ROLE & MASTER RULE - PT. SUKUN WARTONO INDONESIA
 // ===================================================================
+import { getSupabaseClient } from './supabaseClient';
 
 export const DEFAULT_USERS = [
   {
@@ -12,28 +13,55 @@ export const DEFAULT_USERS = [
     roleLabel: 'Super Admin',
     badgeColor: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
     avatar: 'AD',
-    deskripsi: 'Akses penuh: Dashboard, Tally, Excel, Kartu Giling, Laporan, Audit, Master Rule & Pengaturan Sistem'
+    assignedLokal: 'ALL',
+    deskripsi: 'Akses penuh: Seluruh lokal pabrik, Dashboard, Tally, Excel, Kartu Giling, Laporan, Audit & Pengaturan'
   },
   {
-    id: 'usr-mandor',
-    username: 'mandor',
+    id: 'usr-mandor-1',
+    username: 'mandor1',
     password: 'sukun123',
-    name: 'Mandor QC Lantai Giling',
+    name: 'Mandor Sutrisno',
     role: 'mandor',
     roleLabel: 'Mandor QC',
     badgeColor: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
-    avatar: 'MQ',
-    deskripsi: 'Akses operasional: Input Tally Meja, Upload Excel, Data & Kartu Giling, Anatomi Cacat & Laporan Resmi'
+    avatar: 'M1',
+    assignedLokal: 'Lokal 1',
+    deskripsi: 'Mandor Meja QC Lokal 1: Khusus mengawasi dan mengelola data produksi di Lokal 1'
+  },
+  {
+    id: 'usr-mandor-2',
+    username: 'mandor2',
+    password: 'sukun123',
+    name: 'Mandor Supardi',
+    role: 'mandor',
+    roleLabel: 'Mandor QC',
+    badgeColor: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
+    avatar: 'M2',
+    assignedLokal: 'L1C',
+    deskripsi: 'Mandor Meja QC L1C: Khusus mengawasi dan mengelola data produksi di L1C'
+  },
+  {
+    id: 'usr-mandor-3',
+    username: 'mandor3',
+    password: 'sukun123',
+    name: 'Mandor Haryanto',
+    role: 'mandor',
+    roleLabel: 'Mandor QC',
+    badgeColor: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
+    avatar: 'M3',
+    assignedLokal: 'L3B',
+    deskripsi: 'Mandor Meja QC L3B: Khusus mengawasi dan mengelola data produksi di L3B'
   },
   {
     id: 'usr-operator',
     username: 'operator',
     password: 'sukun123',
-    name: 'Operator Inspeksi Fisik',
+    name: 'Operator Inspeksi Mutu',
     role: 'operator',
     roleLabel: 'Operator Mutu',
     badgeColor: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30',
     avatar: 'OP',
+    assignedLokal: 'ALL',
     deskripsi: 'Akses pemantauan: Melihat Dashboard KPI, Rasio Cacat Harian & Anatomi 8 Cacat Rokok'
   }
 ];
@@ -149,7 +177,7 @@ export const MASTER_QC_RULES = [
 ];
 
 const AUTH_STORAGE_KEY = 'sukun_qc_auth_session';
-const USERS_STORAGE_KEY = 'sukun_qc_users_list_v1';
+const USERS_STORAGE_KEY = 'sukun_qc_users_list_v2';
 
 // Ambil daftar pengguna (dengan fallback default)
 export function getAllUsers() {
@@ -170,8 +198,44 @@ export function saveAllUsers(users) {
   localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
 }
 
+// Sinkronisasi akun mandor dengan Supabase cloud (tabel referensi)
+export async function syncUsersWithSupabase() {
+  const client = getSupabaseClient();
+  if (!client) return getAllUsers();
+
+  try {
+    const { data, error } = await client
+      .from('referensi')
+      .select('*')
+      .eq('kategori', 'USER_ACCOUNT');
+
+    if (!error && data && data.length > 0) {
+      const cloudUsers = data.map(d => {
+        try {
+          return JSON.parse(d.nilai);
+        } catch (_) {
+          return null;
+        }
+      }).filter(Boolean);
+
+      const current = getAllUsers();
+      const map = new Map();
+      DEFAULT_USERS.forEach(u => map.set(u.username, u));
+      current.forEach(u => map.set(u.username, u));
+      cloudUsers.forEach(u => map.set(u.username, u));
+
+      const merged = Array.from(map.values());
+      saveAllUsers(merged);
+      return merged;
+    }
+  } catch (e) {
+    console.warn('Sync users warning:', e);
+  }
+  return getAllUsers();
+}
+
 // Tambah user baru (hanya Super Admin)
-export function addUser(newUserData) {
+export async function addUser(newUserData) {
   const users = getAllUsers();
   const cleanUsername = String(newUserData.username || '').trim().toLowerCase();
 
@@ -183,6 +247,7 @@ export function addUser(newUserData) {
 
   const role = newUserData.role || 'mandor';
   const roleMeta = ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS.mandor;
+  const assignedLokal = newUserData.assignedLokal || 'Lokal 1';
 
   const newUser = {
     id: 'usr-' + Date.now(),
@@ -193,11 +258,26 @@ export function addUser(newUserData) {
     roleLabel: roleMeta.label,
     badgeColor: roleMeta.badge,
     avatar: (newUserData.name || cleanUsername).substring(0, 2).toUpperCase(),
-    deskripsi: roleMeta.description
+    assignedLokal: assignedLokal,
+    deskripsi: role === 'mandor' ? `Mandor Pengawas Wilayah: ${assignedLokal}` : roleMeta.description
   };
 
   users.push(newUser);
   saveAllUsers(users);
+
+  // Sync ke Supabase cloud jika terhubung
+  const client = getSupabaseClient();
+  if (client) {
+    try {
+      await client.from('referensi').insert([{
+        kategori: 'USER_ACCOUNT',
+        nilai: JSON.stringify(newUser)
+      }]);
+    } catch (e) {
+      console.warn('Gagal sync user ke Supabase:', e);
+    }
+  }
+
   return newUser;
 }
 
@@ -209,6 +289,7 @@ export function updateUser(id, updateData) {
 
   const role = updateData.role || users[idx].role;
   const roleMeta = ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS.mandor;
+  const assignedLokal = updateData.assignedLokal || users[idx].assignedLokal || 'Lokal 1';
 
   users[idx] = {
     ...users[idx],
@@ -216,7 +297,8 @@ export function updateUser(id, updateData) {
     role: role,
     roleLabel: roleMeta.label,
     badgeColor: roleMeta.badge,
-    deskripsi: roleMeta.description,
+    assignedLokal: assignedLokal,
+    deskripsi: role === 'mandor' ? `Mandor Pengawas Wilayah: ${assignedLokal}` : roleMeta.description,
     password: updateData.password || users[idx].password
   };
 
@@ -225,13 +307,32 @@ export function updateUser(id, updateData) {
 }
 
 // Hapus user (hanya Super Admin)
-export function deleteUser(id) {
+export async function deleteUser(id) {
   const users = getAllUsers();
   if (id === 'usr-admin') {
     throw new Error('Akun Super Admin utama tidak boleh dihapus!');
   }
+  const toDelete = users.find((u) => u.id === id);
   const filtered = users.filter((u) => u.id !== id);
   saveAllUsers(filtered);
+
+  // Hapus juga dari Supabase cloud jika ada
+  const client = getSupabaseClient();
+  if (client && toDelete) {
+    try {
+      const { data } = await client.from('referensi').select('id, nilai').eq('kategori', 'USER_ACCOUNT');
+      if (data) {
+        for (const item of data) {
+          try {
+            const p = JSON.parse(item.nilai);
+            if (p.id === id || p.username === toDelete.username) {
+              await client.from('referensi').delete().eq('id', item.id);
+            }
+          } catch (_) {}
+        }
+      }
+    } catch (_) {}
+  }
 }
 
 // Cek sesi login saat ini
@@ -256,7 +357,7 @@ export function loginUser(username, password) {
   );
 
   if (!found) {
-    throw new Error('Username atau kata sandi tidak valid. Silakan coba lagi.');
+    throw new Error('Username atau kata sandi tidak valid. Silakan periksa kembali.');
   }
 
   const session = {
@@ -267,6 +368,7 @@ export function loginUser(username, password) {
     roleLabel: found.roleLabel,
     badgeColor: found.badgeColor,
     avatar: found.avatar,
+    assignedLokal: found.assignedLokal || 'ALL',
     loginAt: new Date().toISOString()
   };
 

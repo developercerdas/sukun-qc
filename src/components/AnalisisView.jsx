@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { Award, ShieldAlert } from 'lucide-react';
 
-export default function AnalisisView({ dataset }) {
+export default function AnalisisView({ dataset, currentUser }) {
   // Peringkat Berdasarkan Operator (Nama Telak)
   const telakRankings = useMemo(() => {
     const map = {};
@@ -189,32 +189,53 @@ export default function AnalisisView({ dataset }) {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200 dark:divide-slate-800 text-slate-700 dark:text-slate-300">
-              {lokalRankings.map((lok, idx) => (
-                <tr key={lok.lokal} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
-                  <td className="p-3 font-bold text-slate-500">#{idx + 1}</td>
-                  <td className="p-3 font-bold text-slate-900 dark:text-white">{lok.lokal}</td>
-                  <td className="p-3 text-right font-semibold">
-                    {lok.garapan.toLocaleString('id-ID')}
-                  </td>
-                  <td className="p-3 text-right font-bold text-red-600">
-                    {lok.kerusakanTelak.toLocaleString('id-ID')}
-                  </td>
-                  <td className="p-3 text-right font-black">{lok.rasio}%</td>
-                  <td className="p-3 text-center">
-                    <span
-                      className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
-                        lok.rasio <= 0.7
-                          ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
-                          : lok.rasio <= 1.0
-                          ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
-                          : 'bg-red-100 text-red-800 dark:bg-red-950/60 dark:text-red-300'
-                      }`}
-                    >
-                      {lok.rasio <= 0.7 ? 'Sangat Baik' : lok.rasio <= 1.0 ? 'Standar' : 'Perlu Evaluasi'}
-                    </span>
-                  </td>
-                </tr>
-              ))}
+              {lokalRankings.map((lok, idx) => {
+                const isMyLokal =
+                  currentUser?.assignedLokal &&
+                  currentUser.assignedLokal !== 'ALL' &&
+                  String(lok.lokal).trim().toLowerCase() === String(currentUser.assignedLokal).trim().toLowerCase();
+
+                return (
+                  <tr
+                    key={lok.lokal}
+                    className={`transition-colors ${
+                      isMyLokal
+                        ? 'bg-amber-500/10 dark:bg-amber-500/15 border-l-4 border-l-amber-500'
+                        : 'hover:bg-slate-50 dark:hover:bg-slate-800/40'
+                    }`}
+                  >
+                    <td className="p-3 font-bold text-slate-500">#{idx + 1}</td>
+                    <td className="p-3 font-bold text-slate-900 dark:text-white flex items-center space-x-2">
+                      <span>{lok.lokal}</span>
+                      {isMyLokal && (
+                        <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                          Wilayah Anda
+                        </span>
+                      )}
+                    </td>
+                    <td className="p-3 text-right font-semibold">
+                      {lok.garapan.toLocaleString('id-ID')}
+                    </td>
+                    <td className="p-3 text-right font-bold text-red-600">
+                      {lok.kerusakanTelak.toLocaleString('id-ID')}
+                    </td>
+                    <td className="p-3 text-right font-black">{lok.rasio}%</td>
+                    <td className="p-3 text-center">
+                      <span
+                        className={`px-2.5 py-1 rounded-full text-[10px] font-bold ${
+                          lok.rasio <= 0.7
+                            ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                            : lok.rasio <= 1.0
+                            ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
+                            : 'bg-red-100 text-red-800 dark:bg-red-950/60 dark:text-red-300'
+                        }`}
+                      >
+                        {lok.rasio <= 0.7 ? 'Sangat Baik' : lok.rasio <= 1.0 ? 'Standar' : 'Perlu Evaluasi'}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

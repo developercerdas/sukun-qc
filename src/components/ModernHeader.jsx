@@ -130,6 +130,16 @@ export default function ModernHeader({
         {/* User Role Pill & Logout */}
         {currentUser && (
           <div className="flex items-center space-x-2 pl-2 border-l border-slate-200 dark:border-slate-800">
+            {/* Assigned Lokal Badge */}
+            {currentUser.assignedLokal && currentUser.assignedLokal !== 'ALL' ? (
+              <span className="hidden md:inline-flex items-center px-2 py-1 rounded-lg text-[10px] font-black bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                📍 {currentUser.assignedLokal}
+              </span>
+            ) : (
+              <span className="hidden md:inline-flex items-center px-2 py-1 rounded-lg text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700">
+                🌐 Seluruh Pabrik
+              </span>
+            )}
             <div className="hidden sm:flex flex-col text-right">
               <span className="font-bold text-slate-800 dark:text-slate-100 text-[11px] leading-tight">
                 {currentUser.name}

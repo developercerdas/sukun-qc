@@ -55,7 +55,8 @@ export default function PengaturanView({
     username: '',
     password: '',
     name: '',
-    role: 'mandor'
+    role: 'mandor',
+    assignedLokal: 'Lokal 1'
   });
   const [userActionMsg, setUserActionMsg] = useState('');
 
@@ -102,14 +103,20 @@ export default function PengaturanView({
     }
   };
 
-  const handleAddUserSubmit = (e) => {
+  const handleAddUserSubmit = async (e) => {
     e.preventDefault();
     setUserActionMsg('');
     try {
       soundFx.playClick();
-      addUser(newUserForm);
+      await addUser(newUserForm);
       setUsersList(getAllUsers());
-      setNewUserForm({ username: '', password: '', name: '', role: 'mandor' });
+      setNewUserForm({
+        username: '',
+        password: '',
+        name: '',
+        role: 'mandor',
+        assignedLokal: references.lokal[0] || 'Lokal 1'
+      });
       soundFx.playSuccess();
       setUserActionMsg('Akun pengguna baru berhasil ditambahkan!');
       setTimeout(() => setUserActionMsg(''), 4000);
@@ -370,6 +377,7 @@ CREATE POLICY "Public Full Access on log_aktivitas" ON log_aktivitas FOR ALL USI
                 <th className="p-3">User</th>
                 <th className="p-3">Username</th>
                 <th className="p-3">Role / Peran</th>
+                <th className="p-3">Wilayah Tugas</th>
                 <th className="p-3">Password</th>
                 <th className="p-3 text-center">Aksi</th>
               </tr>
@@ -390,6 +398,17 @@ CREATE POLICY "Public Full Access on log_aktivitas" ON log_aktivitas FOR ALL USI
                     <span className={`px-2 py-0.5 rounded-full text-[10px] font-black border ${u.badgeColor}`}>
                       {u.roleLabel || u.role}
                     </span>
+                  </td>
+                  <td className="p-3">
+                    {u.assignedLokal && u.assignedLokal !== 'ALL' ? (
+                      <span className="px-2 py-0.5 rounded-md text-[10px] font-black bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                        📍 {u.assignedLokal}
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 dark:bg-slate-800 text-slate-500 border border-slate-200 dark:border-slate-700">
+                        🌐 Seluruh Pabrik
+                      </span>
+                    )}
                   </td>
                   <td className="p-3 font-mono text-slate-500">
                     ••••••••
@@ -419,7 +438,7 @@ CREATE POLICY "Public Full Access on log_aktivitas" ON log_aktivitas FOR ALL USI
             <UserPlus className="w-4 h-4 text-emerald-500" />
             <span>Tambah Akun Baru (Mandor / Staf QC)</span>
           </h4>
-          <form onSubmit={handleAddUserSubmit} className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+          <form onSubmit={handleAddUserSubmit} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
             <div>
               <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Nama Lengkap</label>
               <input
@@ -452,6 +471,19 @@ CREATE POLICY "Public Full Access on log_aktivitas" ON log_aktivitas FOR ALL USI
                 <option value="mandor">Mandor QC Lantai</option>
                 <option value="operator">Operator / Viewer</option>
                 <option value="admin">Super Admin</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-[10px] font-bold uppercase text-slate-500 mb-1">Wilayah / Lokal Tugas</label>
+              <select
+                value={newUserForm.assignedLokal || 'Lokal 1'}
+                onChange={(e) => setNewUserForm({ ...newUserForm, assignedLokal: e.target.value })}
+                className="w-full text-xs border rounded-xl px-3 py-2 bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700"
+              >
+                <option value="ALL">🌐 ALL (Seluruh Pabrik)</option>
+                {references.lokal.map((l) => (
+                  <option key={l} value={l}>📍 {l}</option>
+                ))}
               </select>
             </div>
             <div>

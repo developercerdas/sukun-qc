@@ -145,9 +145,20 @@ export default function ModernSidebar({
                   <div className="text-xs font-bold text-white truncate">
                     {currentUser?.name || 'Administrator'}
                   </div>
-                  <span className={`inline-block px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider border ${currentUser?.badgeColor || 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'}`}>
-                    {currentUser?.roleLabel || 'Admin'}
-                  </span>
+                  <div className="flex flex-wrap items-center gap-1 mt-0.5">
+                    <span className={`inline-block px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider border ${currentUser?.badgeColor || 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30'}`}>
+                      {currentUser?.roleLabel || 'Admin'}
+                    </span>
+                    {currentUser?.assignedLokal && currentUser.assignedLokal !== 'ALL' ? (
+                      <span className="inline-block px-1.5 py-0.5 rounded-md text-[9px] font-black bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                        📍 {currentUser.assignedLokal}
+                      </span>
+                    ) : (
+                      <span className="inline-block px-1.5 py-0.5 rounded-md text-[9px] font-bold bg-slate-700/80 text-slate-300">
+                        Global
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
               <button
@@ -230,7 +241,11 @@ export default function ModernSidebar({
           {(!collapsed || mobileOpen) && (
             <div className="p-3 mx-3 mb-2 rounded-2xl bg-slate-800/60 border border-slate-700/60 space-y-2 text-xs">
               <div className="flex items-center justify-between text-[10px] text-slate-400 font-bold uppercase">
-                <span>Indeks Mutu AQL</span>
+                <span>
+                  {currentUser?.assignedLokal && currentUser.assignedLokal !== 'ALL'
+                    ? `Mutu ${currentUser.assignedLokal}`
+                    : 'Mutu Pabrik'}
+                </span>
                 <span className={isAqlPass ? 'text-emerald-400' : 'text-red-400'}>
                   {isAqlPass ? 'LULUS (GRADE A)' : 'WASPADA'}
                 </span>

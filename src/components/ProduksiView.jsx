@@ -19,8 +19,11 @@ export default function ProduksiView({
   onDeleteData,
   onEditData,
   canEdit = true,
-  canDelete = true
+  canDelete = true,
+  currentUser
 }) {
+  const isMandorScoped = !!(currentUser?.assignedLokal && currentUser.assignedLokal !== 'ALL');
+  const [onlyMyLokal, setOnlyMyLokal] = useState(isMandorScoped);
   const [searchQuery, setSearchQuery] = useState('');
   const [showDetailedDamages, setShowDetailedDamages] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -28,9 +31,15 @@ export default function ProduksiView({
   const pageSize = 15;
 
   const filteredData = useMemo(() => {
-    if (!searchQuery.trim()) return dataset;
+    let list = dataset;
+    if (onlyMyLokal && isMandorScoped) {
+      list = list.filter(
+        (d) => String(d.LOKAL).trim().toLowerCase() === String(currentUser.assignedLokal).trim().toLowerCase()
+      );
+    }
+    if (!searchQuery.trim()) return list;
     const q = searchQuery.toLowerCase();
-    return dataset.filter((d) => {
+    return list.filter((d) => {
       const matchNama = String(d.NAMA || '').toLowerCase().includes(q);
       const matchLokal = String(d.LOKAL || '').toLowerCase().includes(q);
       const matchTgl = String(d.TANGGAL || '').toLowerCase().includes(q);
@@ -39,7 +48,7 @@ export default function ProduksiView({
       const matchAbsensi = String(d.ABSENSI || '').toLowerCase().includes(q);
       return matchNama || matchLokal || matchTgl || matchHari || matchJam || matchAbsensi;
     });
-  }, [dataset, searchQuery]);
+  }, [dataset, searchQuery, onlyMyLokal, isMandorScoped, currentUser]);
 
   const totalPages = Math.ceil(filteredData.length / pageSize) || 1;
   const paginatedData = useMemo(() => {
@@ -55,6 +64,47 @@ export default function ProduksiView({
 
   return (
     <div className="space-y-4 max-w-7xl mx-auto">
+      {/* Workspace Banner Khusus Mandor */}
+      {isMandorScoped && (
+        <div className="bg-gradient-to-r from-amber-500/10 via-slate-900/60 to-slate-900 border border-amber-500/30 rounded-3xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center font-black text-lg shrink-0 border border-amber-500/30">
+              📍
+            </div>
+            <div>
+              <div className="flex items-center space-x-2">
+                <h3 className="text-sm font-black text-white">
+                  Ruang Kerja Mandor: {currentUser.name}
+                </h3>
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-500/25 text-amber-300 border border-amber-500/40">
+                  {currentUser.assignedLokal}
+                </span>
+              </div>
+              <p className="text-xs text-slate-300 mt-0.5">
+                {onlyMyLokal
+                  ? `Terkunci: Menampilkan ${filteredData.length} data produksi khusus wilayah ${currentUser.assignedLokal} milik Anda.`
+                  : `Mode Terbuka: Menampilkan seluruh data produksi dari semua sektor pabrik.`}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center space-x-2 shrink-0">
+            <button
+              onClick={() => {
+                setOnlyMyLokal(!onlyMyLokal);
+                setCurrentPage(1);
+              }}
+              className={`px-3.5 py-2 rounded-xl text-xs font-black transition-all border ${
+                onlyMyLokal
+                  ? 'bg-amber-500 hover:bg-amber-400 text-slate-950 border-amber-400 shadow-md shadow-amber-500/20'
+                  : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
+              }`}
+            >
+              {onlyMyLokal ? '✓ Hanya Wilayah Saya' : 'Tampilkan Seluruh Pabrik'}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Top Toolbar */}
       <div className="bg-white dark:bg-slate-900 p-4 rounded-3xl shadow-sm border border-slate-200 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
         {/* Search Input */}
