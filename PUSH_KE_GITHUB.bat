@@ -7,12 +7,13 @@ echo   MENGIRIM PEMBARUAN APLIKASI QC KE GITHUB (developercerdas/sukun-qc)
 echo ===================================================================
 echo.
 echo Sedang mengunggah fitur terbaru:
-echo   [+] Perbaikan Engine Bulk Import: Kecepatan Tinggi (Batch 100 baris/detik)
-echo   [+] Solusi Masalah Selisih Jumlah Data Import vs Data Aktual
-echo   [+] Dukungan Multi-Sheet Excel ^& Penggabungan Semua Lembar Kerja
-echo   [+] Toleransi Merged Cells ^& Auto-Fill Tanggal/Lokal Pabrik
-echo   [+] Opsi Mode: Tambahkan (Append) vs Ganti Bersih Database (Clean Replace)
-echo   [+] Tombol Reset / Kosongkan Data Produksi di Pengaturan
+echo   [+] 3 Mode Input Manual Kilat (Tanpa Perlu Excel):
+echo       1. Tabel Grid Cepat (Spreadsheet Web: Muat Semua Operator Sekaligus)
+echo       2. Express Form (Simpan ^& Lanjut Otomatis dalam 3 Detik)
+echo       3. Smart Paste WA (Salin-Tempel Catatan Lapangan / WhatsApp Langsung)
+echo       4. Formulir Standar Klasik
+echo   [+] Engine Bulk Insert Supabase Kecepatan Tinggi (Batch 100 baris/detik)
+echo   [+] Mode Clean Replace vs Append Import
 echo.
 "C:\laragon\bin\git\cmd\git.exe" push origin main
 echo.
