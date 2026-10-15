@@ -26,7 +26,7 @@ export const DEFAULT_USERS = [
     badgeColor: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
     avatar: 'M1',
     assignedLokal: 'Lokal 1',
-    deskripsi: 'Mandor Meja QC Lokal 1: Khusus mengawasi dan mengelola data produksi di Lokal 1'
+    deskripsi: 'Mandor Pengawas Wilayah: Lokal 1'
   },
   {
     id: 'usr-mandor-2',
@@ -38,19 +38,55 @@ export const DEFAULT_USERS = [
     badgeColor: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
     avatar: 'M2',
     assignedLokal: 'L1C',
-    deskripsi: 'Mandor Meja QC L1C: Khusus mengawasi dan mengelola data produksi di L1C'
+    deskripsi: 'Mandor Pengawas Wilayah: L1C'
   },
   {
     id: 'usr-mandor-3',
     username: 'mandor3',
     password: 'sukun123',
-    name: 'Mandor Haryanto',
+    name: 'Mandor Bambang',
     role: 'mandor',
     roleLabel: 'Mandor QC',
     badgeColor: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
     avatar: 'M3',
+    assignedLokal: 'L2A',
+    deskripsi: 'Mandor Pengawas Wilayah: L2A'
+  },
+  {
+    id: 'usr-mandor-4',
+    username: 'mandor4',
+    password: 'sukun123',
+    name: 'Mandor Joko',
+    role: 'mandor',
+    roleLabel: 'Mandor QC',
+    badgeColor: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
+    avatar: 'M4',
+    assignedLokal: 'L2B',
+    deskripsi: 'Mandor Pengawas Wilayah: L2B'
+  },
+  {
+    id: 'usr-mandor-5',
+    username: 'mandor5',
+    password: 'sukun123',
+    name: 'Mandor Slamet',
+    role: 'mandor',
+    roleLabel: 'Mandor QC',
+    badgeColor: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
+    avatar: 'M5',
+    assignedLokal: 'L3A',
+    deskripsi: 'Mandor Pengawas Wilayah: L3A'
+  },
+  {
+    id: 'usr-mandor-6',
+    username: 'mandor6',
+    password: 'sukun123',
+    name: 'Mandor Haryanto',
+    role: 'mandor',
+    roleLabel: 'Mandor QC',
+    badgeColor: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
+    avatar: 'M6',
     assignedLokal: 'L3B',
-    deskripsi: 'Mandor Meja QC L3B: Khusus mengawasi dan mengelola data produksi di L3B'
+    deskripsi: 'Mandor Pengawas Wilayah: L3B'
   },
   {
     id: 'usr-operator',
@@ -212,7 +248,23 @@ export async function syncUsersWithSupabase() {
     if (!error && data && data.length > 0) {
       const cloudUsers = data.map(d => {
         try {
-          return JSON.parse(d.nilai);
+          const raw = JSON.parse(d.nilai);
+          if (!raw || !raw.username) return null;
+          const role = raw.role || 'mandor';
+          const roleMeta = ROLE_PERMISSIONS[role] || ROLE_PERMISSIONS.mandor;
+          const assignedLokal = raw.assignedLokal || 'Lokal 1';
+          return {
+            id: raw.id || 'usr-' + raw.username,
+            username: raw.username,
+            password: raw.password || 'sukun123',
+            name: raw.name || raw.username,
+            role: role,
+            roleLabel: roleMeta.label,
+            badgeColor: roleMeta.badge,
+            avatar: (raw.name || raw.username).substring(0, 2).toUpperCase(),
+            assignedLokal: assignedLokal,
+            deskripsi: role === 'mandor' ? `Mandor Pengawas Wilayah: ${assignedLokal}` : roleMeta.description
+          };
         } catch (_) {
           return null;
         }
@@ -265,13 +317,21 @@ export async function addUser(newUserData) {
   users.push(newUser);
   saveAllUsers(users);
 
-  // Sync ke Supabase cloud jika terhubung
+  // Sync ke Supabase cloud jika terhubung (Simpan ringkas agar muat dalam VARCHAR 255)
   const client = getSupabaseClient();
   if (client) {
     try {
+      const compactPayload = {
+        id: newUser.id,
+        username: newUser.username,
+        password: newUser.password,
+        name: newUser.name,
+        role: newUser.role,
+        assignedLokal: newUser.assignedLokal
+      };
       await client.from('referensi').insert([{
         kategori: 'USER_ACCOUNT',
-        nilai: JSON.stringify(newUser)
+        nilai: JSON.stringify(compactPayload)
       }]);
     } catch (e) {
       console.warn('Gagal sync user ke Supabase:', e);

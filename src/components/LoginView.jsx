@@ -197,8 +197,8 @@ export default function LoginView({ onLoginSuccess }) {
               </span>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-              {usersList.slice(0, 6).map((usr) => {
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {usersList.slice(0, 8).map((usr) => {
                 const isSelected = username === usr.username;
                 return (
                   <button
