@@ -7,13 +7,12 @@ echo   MENGIRIM PEMBARUAN APLIKASI QC KE GITHUB (developercerdas/sukun-qc)
 echo ===================================================================
 echo.
 echo Sedang mengunggah fitur terbaru:
-echo   [+] 3 Mode Input Manual Kilat (Tanpa Perlu Excel):
-echo       1. Tabel Grid Cepat (Spreadsheet Web: Muat Semua Operator Sekaligus)
-echo       2. Express Form (Simpan ^& Lanjut Otomatis dalam 3 Detik)
-echo       3. Smart Paste WA (Salin-Tempel Catatan Lapangan / WhatsApp Langsung)
-echo       4. Formulir Standar Klasik
-echo   [+] Engine Bulk Insert Supabase Kecepatan Tinggi (Batch 100 baris/detik)
-echo   [+] Mode Clean Replace vs Append Import
+echo   [+] Sistem Akun Masing-masing Mandor (Lokal 1, L1C, L3B)
+echo       - Isolasi Data Otomatis: Mandor hanya melihat data wilayahnya sendiri
+echo       - Pilihan Toggle: Fokus Wilayah Saya vs Seluruh Pabrik
+echo       - Auto-assign lokal di formulir input & laporan resmi
+echo       - Sinkronisasi Akun Cloud Supabase
+echo   [+] 3 Mode Input Manual Kilat (Grid, Express, Paste WA)
 echo.
 "C:\laragon\bin\git\cmd\git.exe" push origin main
 echo.
