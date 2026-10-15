@@ -252,7 +252,12 @@ export default function App() {
           )}
 
           {activeTab === 'input' && (
-            <InputView references={references} onAddData={handleAddData} />
+            <InputView
+              references={references}
+              dataset={dataset}
+              onAddData={handleAddData}
+              onBatchAdd={handleBatchImport}
+            />
           )}
 
           {activeTab === 'import' && (
